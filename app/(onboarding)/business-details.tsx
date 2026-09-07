@@ -1,20 +1,29 @@
 import { useState } from 'react';
-import { Text, StyleSheet } from 'react-native';
+import { Text, StyleSheet, Alert } from 'react-native';
 import { router, Stack } from 'expo-router';
 import { ScreenWrapper } from '@/components/layout/ScreenWrapper';
 import { StepProgress } from '@/components/layout/StepProgress';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { usePartnerStore } from '@/stores/partnerStore';
+import { useAuthStore } from '@/stores/authStore';
+import { onboardingService } from '@/services/api';
+import type { BusinessDetails } from '@/types/partner';
+import { formatPanInput, validateEmail, validatePanFormat } from '@/utils/validation';
 import { colors, spacing, typography } from '@/theme';
 
 export default function BusinessDetailsScreen() {
   const setBusinessDetails = usePartnerStore((s) => s.setBusinessDetails);
   const existing = usePartnerStore((s) => s.profile?.businessDetails);
   const partnerType = usePartnerStore((s) => s.profile?.partnerType);
+  const authPhone = useAuthStore((s) => s.phone);
+  const [loading, setLoading] = useState(false);
+
+  const isStore = partnerType === 'STORE';
 
   const [form, setForm] = useState({
     fullName: existing?.fullName ?? '',
+    storeName: existing?.storeName ?? '',
     businessName: existing?.businessName ?? '',
     businessType: existing?.businessType ?? '',
     mobile: existing?.mobile ?? '',
@@ -28,13 +37,100 @@ export default function BusinessDetailsScreen() {
     setForm((f) => ({ ...f, [key]: value }));
   }
 
-  function handleContinue() {
-    setBusinessDetails(form);
-    if (partnerType === 'STORE' || partnerType === 'DARK_STORE') {
-      router.push('/(onboarding)/store-details');
+  async function handleContinue() {
+    if (isStore) {
+      if (!form.fullName.trim() || !form.storeName.trim() || !form.email.trim()) {
+        Alert.alert('Required', 'Please fill in all required fields');
+        return;
+      }
+      if (!validateEmail(form.email)) {
+        Alert.alert('Invalid Email', 'Please enter a valid email address');
+        return;
+      }
+      if (!form.panNumber.trim()) {
+        Alert.alert('Required', 'PAN number is required');
+        return;
+      }
+      if (!validatePanFormat(form.panNumber)) {
+        Alert.alert('Invalid PAN', 'Please enter a valid PAN number (e.g. ABCDE1234F)');
+        return;
+      }
+
+      const details: BusinessDetails = {
+        fullName: form.fullName.trim(),
+        storeName: form.storeName.trim(),
+        email: form.email.trim(),
+        description: form.description.trim(),
+        panNumber: form.panNumber.trim().toUpperCase(),
+        mobile: authPhone ?? '',
+        gstNumber: form.gstNumber.trim() || undefined,
+      };
+      setBusinessDetails(details);
+      setLoading(true);
+      try {
+        await onboardingService.update({
+          businessDetails: details,
+          onboardingStep: 'store_details',
+        });
+        router.push('/(onboarding)/store-details');
+      } catch {
+        Alert.alert('Error', 'Could not save business details. Please try again.');
+      } finally {
+        setLoading(false);
+      }
     } else {
-      router.push('/(onboarding)/seller-setup');
+      const details: BusinessDetails = {
+        fullName: form.fullName.trim(),
+        businessName: form.businessName.trim(),
+        businessType: form.businessType.trim(),
+        mobile: form.mobile.trim(),
+        email: form.email.trim(),
+        description: form.description.trim(),
+        panNumber: form.panNumber.trim(),
+        gstNumber: form.gstNumber.trim() || undefined,
+      };
+      setBusinessDetails(details);
+      setLoading(true);
+      try {
+        await onboardingService.update({
+          businessDetails: details,
+          onboardingStep: 'seller_setup',
+        });
+        router.push('/(onboarding)/seller-setup');
+      } catch {
+        Alert.alert('Error', 'Could not save business details. Please try again.');
+      } finally {
+        setLoading(false);
+      }
     }
+  }
+
+  if (isStore) {
+    return (
+      <>
+        <Stack.Screen options={{ title: 'Store Details' }} />
+        <ScreenWrapper>
+          <StepProgress currentStep={2} totalSteps={5} />
+          <Text style={styles.title}>Store Details</Text>
+          <Text style={styles.subtitle}>Tell us about your store</Text>
+
+          <Input label="Full Name *" value={form.fullName} onChangeText={(v) => update('fullName', v)} />
+          <Input label="Store Name *" value={form.storeName} onChangeText={(v) => update('storeName', v)} />
+          <Input label="Email *" value={form.email} onChangeText={(v) => update('email', v)} keyboardType="email-address" autoCapitalize="none" />
+          <Input label="Store Description" value={form.description} onChangeText={(v) => update('description', v)} multiline numberOfLines={3} />
+          <Input label="GST Number (Optional)" value={form.gstNumber} onChangeText={(v) => update('gstNumber', v)} />
+          <Input
+            label="PAN Number *"
+            value={form.panNumber}
+            onChangeText={(v) => update('panNumber', formatPanInput(v))}
+            autoCapitalize="characters"
+            maxLength={10}
+          />
+
+          <Button title="Continue" onPress={handleContinue} loading={loading} fullWidth />
+        </ScreenWrapper>
+      </>
+    );
   }
 
   return (
@@ -54,7 +150,7 @@ export default function BusinessDetailsScreen() {
         <Input label="GST Number (Optional)" value={form.gstNumber} onChangeText={(v) => update('gstNumber', v)} />
         <Input label="PAN Number (Optional)" value={form.panNumber} onChangeText={(v) => update('panNumber', v)} />
 
-        <Button title="Continue" onPress={handleContinue} fullWidth />
+        <Button title="Continue" onPress={handleContinue} loading={loading} fullWidth />
       </ScreenWrapper>
     </>
   );

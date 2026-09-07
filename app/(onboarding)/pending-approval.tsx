@@ -1,16 +1,38 @@
+import { useCallback } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { router, Stack } from 'expo-router';
+import { router, Stack, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { ScreenWrapper } from '@/components/layout/ScreenWrapper';
 import { Button } from '@/components/ui/Button';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { usePartnerStore } from '@/stores/partnerStore';
+import { partnerService } from '@/services/api';
 import { setOnboardingComplete } from '@/stores/authStore';
+import { syncOnboardingComplete } from '@/utils/syncOnboarding';
 import { colors, spacing, typography } from '@/theme';
 
 export default function PendingApprovalScreen() {
   const profile = usePartnerStore((s) => s.profile);
+  const setProfile = usePartnerStore((s) => s.setProfile);
   const setApprovalStatus = usePartnerStore((s) => s.setApprovalStatus);
+
+  useFocusEffect(
+    useCallback(() => {
+      async function refresh() {
+        try {
+          const updated = await partnerService.getProfile();
+          setProfile(updated);
+          await syncOnboardingComplete(updated);
+          if (updated.approvalStatus === 'approved' && updated.onboardingStep === 'completed') {
+            router.replace('/(app)/(tabs)');
+          }
+        } catch {
+          // ignore refresh errors
+        }
+      }
+      refresh();
+    }, [setProfile]),
+  );
 
   async function handleDemoApprove() {
     setApprovalStatus('approved');
@@ -55,13 +77,15 @@ export default function PendingApprovalScreen() {
             <Button title="Re-upload Documents" onPress={() => router.push('/(onboarding)/kyc')} fullWidth />
           )}
 
-          <Button
-            title="Continue (Demo Approved)"
-            onPress={handleDemoApprove}
-            variant="secondary"
-            fullWidth
-            style={styles.demoBtn}
-          />
+          {__DEV__ && (
+            <Button
+              title="Continue (Demo Approved)"
+              onPress={handleDemoApprove}
+              variant="secondary"
+              fullWidth
+              style={styles.demoBtn}
+            />
+          )}
         </View>
       </ScreenWrapper>
     </>

@@ -1,6 +1,6 @@
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, radius, spacing, typography } from '@/theme';
+import { colors, radius, spacing, typography, shadows } from '@/theme';
 import type { Banner } from '@/types/index';
 
 type Props = {
@@ -19,6 +19,7 @@ const typeIcons: Record<Banner['type'], keyof typeof Ionicons.glyphMap> = {
 export function BannerCard({ banner, onPress }: Props) {
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.9}>
+      <View style={styles.accentStripe} />
       <View style={styles.iconWrap}>
         <Ionicons name={typeIcons[banner.type]} size={20} color={colors.primary} />
       </View>
@@ -35,10 +36,20 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#EEF2FF',
+    backgroundColor: colors.primaryMuted,
     borderRadius: radius.lg,
     padding: spacing.lg,
     marginBottom: spacing.md,
+    overflow: 'hidden',
+    ...shadows.sm,
+  },
+  accentStripe: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 4,
+    backgroundColor: colors.primary,
   },
   iconWrap: {
     width: 40,
@@ -47,6 +58,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
+    marginLeft: spacing.sm,
   },
   content: { flex: 1, marginHorizontal: spacing.md },
   title: { ...typography.bodyMedium, color: colors.text },

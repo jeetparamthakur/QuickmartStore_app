@@ -1,22 +1,30 @@
-import { USE_MOCK_API, apiClient } from './client';
+import { USE_MOCK_API, apiClient, normalizePhone, uploadMultipart } from './client';
 import { mockApi } from './mock';
+import { mapPartnerProfile } from './mappers/partnerProfile';
 import type { OrderStatus } from '@/types/order';
-import type { ProductStatus, Product } from '@/types/product';
+import type { ProductStatus, Product, ProductListFilters } from '@/types/product';
+import type { ProductCategory } from '@/types/category';
 import type { UserLocation } from '@/types/location';
 import type { PartnerDeliveryPreferences } from '@/types/delivery';
-import type { BankAccount } from '@/types/index';
+import type { BankAccount, KycInfo } from '@/types/index';
+import type { OnboardingStep, PartnerType } from '@/types/partner';
+
+export type { ProductListFilters };
 
 export const authService = {
   sendOtp: (phone: string) =>
     USE_MOCK_API
       ? mockApi.auth.sendOtp(phone)
-      : apiClient('/auth/otp/send', { method: 'POST', body: { phone: `+91${phone}`, userType: 'SELLER' } }),
+      : apiClient('/auth/otp/send', {
+          method: 'POST',
+          body: { phone: normalizePhone(phone), userType: 'SELLER' },
+        }),
   verifyOtp: (phone: string, otp: string) =>
     USE_MOCK_API
       ? mockApi.auth.verifyOtp(phone, otp)
       : apiClient<{ token: string; refreshToken: string }>('/auth/otp/verify', {
           method: 'POST',
-          body: { phone: `+91${phone}`, otp, userType: 'STORE_OWNER' },
+          body: { phone: normalizePhone(phone), otp, userType: 'SELLER' },
         }),
   logout: () =>
     USE_MOCK_API ? mockApi.auth.logout() : apiClient('/auth/logout', { method: 'POST' }),
@@ -27,8 +35,31 @@ export const configService = {
 };
 
 export const partnerService = {
-  getProfile: () =>
-    USE_MOCK_API ? mockApi.partner.getProfile() : apiClient('/seller/me'),
+  getProfile: async () => {
+    if (USE_MOCK_API) return mockApi.partner.getProfile();
+    const data = await apiClient('/seller/me');
+    return mapPartnerProfile(data);
+  },
+};
+
+export type OnboardingUpdatePayload = {
+  onboardingStep?: OnboardingStep;
+  partnerType?: PartnerType;
+  businessDetails?: Record<string, unknown>;
+  storeDetails?: Record<string, unknown>;
+  sellerSetup?: Record<string, unknown>;
+  bankDetails?: Record<string, unknown>;
+};
+
+export const onboardingService = {
+  update: (data: OnboardingUpdatePayload) =>
+    USE_MOCK_API
+      ? mockApi.partner.getProfile()
+      : apiClient('/seller/onboarding', { method: 'PATCH', body: data }),
+  complete: (bankDetails?: Record<string, unknown>) =>
+    USE_MOCK_API
+      ? mockApi.partner.getProfile()
+      : apiClient('/seller/onboarding/complete', { method: 'POST', body: { bankDetails } }),
 };
 
 export const ordersService = {
@@ -45,8 +76,8 @@ export const ordersService = {
 };
 
 export const productsService = {
-  list: (status?: ProductStatus) =>
-    USE_MOCK_API ? mockApi.products.list(status) : apiClient('/seller/products'),
+  list: (filters?: ProductListFilters) =>
+    USE_MOCK_API ? mockApi.products.list(filters) : apiClient('/seller/products'),
   get: (id: string) =>
     USE_MOCK_API ? mockApi.products.get(id) : apiClient(`/products/${id}`),
   create: (data: Partial<Product>) =>
@@ -57,6 +88,27 @@ export const productsService = {
     USE_MOCK_API ? mockApi.products.searchCatalog(query) : apiClient(`/products?q=${encodeURIComponent(query)}`),
   getNearby: (location: UserLocation) =>
     USE_MOCK_API ? mockApi.products.getNearby(location) : apiClient('/products?limit=20'),
+};
+
+export const categoriesService = {
+  list: (storeId: string) =>
+    USE_MOCK_API
+      ? mockApi.categories.list(storeId)
+      : apiClient<ProductCategory[]>(`/seller/stores/${storeId}/categories`),
+  get: (id: string) =>
+    USE_MOCK_API ? mockApi.categories.get(id) : apiClient<ProductCategory>(`/seller/categories/${id}`),
+  create: (storeId: string, data: { name: string }) =>
+    USE_MOCK_API
+      ? mockApi.categories.create(storeId, data)
+      : apiClient(`/seller/stores/${storeId}/categories`, { method: 'POST', body: data }),
+  update: (id: string, data: { name: string }) =>
+    USE_MOCK_API
+      ? mockApi.categories.update(id, data)
+      : apiClient(`/seller/categories/${id}`, { method: 'PATCH', body: data }),
+  delete: (id: string) =>
+    USE_MOCK_API
+      ? mockApi.categories.delete(id)
+      : apiClient(`/seller/categories/${id}`, { method: 'DELETE' }),
 };
 
 export const storesService = {
@@ -90,8 +142,16 @@ export const analyticsService = {
 };
 
 export const kycService = {
-  getStatus: () => mockApi.kyc.getStatus(),
-  uploadDocument: (type: string, uri: string) => mockApi.kyc.uploadDocument(type, uri),
+  getStatus: () =>
+    USE_MOCK_API ? mockApi.kyc.getStatus() : apiClient<KycInfo>('/seller/kyc/status'),
+  uploadDocument: (type: string, uri: string) =>
+    USE_MOCK_API
+      ? mockApi.kyc.uploadDocument(type, uri)
+      : uploadMultipart('/seller/kyc/documents', type, uri),
+  submit: () =>
+    USE_MOCK_API
+      ? mockApi.kyc.getStatus()
+      : apiClient('/seller/kyc/submit', { method: 'POST' }),
 };
 
 export const bankService = {

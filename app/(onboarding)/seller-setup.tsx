@@ -8,7 +8,9 @@ import { Button } from '@/components/ui/Button';
 import { LocationPicker } from '@/components/location/LocationPicker';
 import { AddressSearchInput } from '@/components/location/AddressSearchInput';
 import { DeliveryRadiusSlider } from '@/components/location/DeliveryRadiusSlider';
+import { useCityMapFocus } from '@/hooks/useCityMapFocus';
 import { usePartnerStore } from '@/stores/partnerStore';
+import { onboardingService } from '@/services/api';
 import type { AddressResult } from '@/utils/address';
 import { colors, spacing, typography } from '@/theme';
 
@@ -30,11 +32,15 @@ export default function SellerSetupScreen() {
     deliveryPreference: existing?.deliveryPreference ?? 'platform',
   });
 
+  const [loading, setLoading] = useState(false);
+  const { mapFocus, onCityChange, markCityFromAddress } = useCityMapFocus();
+
   function update(key: string, value: string | number) {
     setForm((f) => ({ ...f, [key]: value }));
   }
 
   function applyAddress(result: AddressResult) {
+    markCityFromAddress();
     setForm((f) => ({
       ...f,
       pickupAddress: result.addressLine,
@@ -46,7 +52,12 @@ export default function SellerSetupScreen() {
     }));
   }
 
-  function handleContinue() {
+  function handleCityChange(city: string) {
+    update('city', city);
+    onCityChange(city);
+  }
+
+  async function handleContinue() {
     if (!form.city || form.pincode.length !== 6) {
       Alert.alert('Required', 'Please enter city and pincode');
       return;
@@ -56,7 +67,18 @@ export default function SellerSetupScreen() {
       return;
     }
     setSellerSetup(form);
-    router.push('/(onboarding)/kyc');
+    setLoading(true);
+    try {
+      await onboardingService.update({
+        sellerSetup: form,
+        onboardingStep: 'kyc',
+      });
+      router.push('/(onboarding)/kyc');
+    } catch {
+      Alert.alert('Error', 'Could not save seller setup. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -68,12 +90,12 @@ export default function SellerSetupScreen() {
         <Text style={styles.subtitle}>Set pickup location and product visibility radius</Text>
 
         <Input label="Seller Name *" value={form.sellerName} onChangeText={(v) => update('sellerName', v)} />
-        <Input label="Business / Shop Name (Optional)" value={form.shopName} onChangeText={(v) => update('shopName', v)} />
+        <Input label="Business Name (Optional)" value={form.shopName} onChangeText={(v) => update('shopName', v)} />
         <Input label="Product Category *" value={form.productCategory} onChangeText={(v) => update('productCategory', v)} />
 
         <Text style={styles.sectionLabel}>Pickup Location</Text>
         <AddressSearchInput onSelect={applyAddress} placeholder="Search pickup address..." />
-        <Input label="City *" value={form.city} onChangeText={(v) => update('city', v)} />
+        <Input label="City *" value={form.city} onChangeText={handleCityChange} />
         <Input label="Area *" value={form.area} onChangeText={(v) => update('area', v)} />
         <Input
           label="Pincode *"
@@ -88,9 +110,10 @@ export default function SellerSetupScreen() {
           latitude={form.latitude}
           longitude={form.longitude}
           deliveryRadiusKm={form.deliveryRadius}
+          mapFocus={mapFocus}
+          onCurrentLocationResolved={applyAddress}
           onLocationChange={(lat, lng) => {
-            update('latitude', lat);
-            update('longitude', lng);
+            setForm((f) => ({ ...f, latitude: lat, longitude: lng }));
           }}
         />
 
@@ -99,7 +122,7 @@ export default function SellerSetupScreen() {
           onChange={(v) => update('deliveryRadius', v)}
         />
 
-        <Button title="Continue" onPress={handleContinue} fullWidth />
+        <Button title="Continue" onPress={handleContinue} loading={loading} fullWidth />
       </ScreenWrapper>
     </>
   );

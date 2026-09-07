@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Alert } from 'react-native';
 import { router, Stack } from 'expo-router';
 import { ScreenWrapper } from '@/components/layout/ScreenWrapper';
 import { StepProgress } from '@/components/layout/StepProgress';
@@ -7,11 +7,13 @@ import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { usePartnerStore } from '@/stores/partnerStore';
-import { bankService } from '@/services/api';
+import { bankService, onboardingService, partnerService } from '@/services/api';
+import { USE_MOCK_API } from '@/services/api/client';
 import { colors, spacing, typography } from '@/theme';
 
 export default function BankSetupScreen() {
   const setOnboardingStep = usePartnerStore((s) => s.setOnboardingStep);
+  const setProfile = usePartnerStore((s) => s.setProfile);
   const [form, setForm] = useState({
     accountHolderName: '',
     bankName: '',
@@ -25,11 +27,23 @@ export default function BankSetupScreen() {
   }
 
   async function handleContinue() {
+    if (!form.accountHolderName || !form.bankName || !form.accountNumber || !form.ifscCode) {
+      Alert.alert('Required', 'Please fill in all bank details');
+      return;
+    }
+
     setLoading(true);
     try {
-      await bankService.update(form);
+      if (USE_MOCK_API) {
+        await bankService.update(form);
+      }
+      await onboardingService.complete(form);
+      const profile = await partnerService.getProfile();
+      setProfile(profile);
       setOnboardingStep('pending_approval');
       router.replace('/(onboarding)/pending-approval');
+    } catch {
+      Alert.alert('Error', 'Could not submit for approval. Please try again.');
     } finally {
       setLoading(false);
     }

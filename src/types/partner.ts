@@ -32,19 +32,19 @@ export type PartnerPermissions = {
 
 export type BusinessDetails = {
   fullName: string;
-  businessName: string;
-  businessType: string;
-  mobile: string;
   email: string;
   description: string;
+  panNumber: string;
+  storeName?: string;
+  businessName?: string;
+  businessType?: string;
+  mobile?: string;
   gstNumber?: string;
-  panNumber?: string;
   registrationDetails?: string;
 };
 
 export type StoreDetails = {
   name: string;
-  category: string;
   description: string;
   logo?: string;
   coverImage?: string;
@@ -56,6 +56,7 @@ export type StoreDetails = {
   longitude?: number;
   openingTime: string;
   closingTime: string;
+  is24Hours: boolean;
   deliveryRadius: number;
   partnerPickupRadiusKm: number;
   platformDeliveryEnabled: boolean;
@@ -89,15 +90,30 @@ export type PartnerProfile = {
 };
 
 export const PARTNER_TYPE_LABELS: Record<PartnerType, string> = {
-  STORE: 'Store / Shop Owner',
+  STORE: 'Build Your Store',
   INDEPENDENT_SELLER: 'Independent Seller',
   BRAND: 'Brand / Business',
   DARK_STORE: 'Dark Store Partner',
 };
 
 export const PARTNER_TYPE_DESCRIPTIONS: Record<PartnerType, string> = {
-  STORE: 'Apne store ke multiple products aur inventory manage karein.',
-  INDEPENDENT_SELLER: 'Apne ek ya multiple products online sell karein.',
+  STORE: 'Create and manage your store with inventory, orders, and payouts in one place.',
+  INDEPENDENT_SELLER: 'Sell your products independently without setting up a full store.',
   BRAND: 'Apne branded products multiple customers tak pahunchayein.',
   DARK_STORE: 'Fast delivery ke liye inventory-based fulfillment store operate karein.',
+};
+
+export const PARTNER_TYPE_BENEFITS: Record<PartnerType, string[]> = {
+  STORE: [
+    'Manage multiple products and inventory',
+    'Track orders and earnings in real time',
+    'Configure delivery and service area',
+  ],
+  INDEPENDENT_SELLER: [
+    'List products without a physical storefront',
+    'Manage orders and payouts easily',
+    'Set your own pickup and service radius',
+  ],
+  BRAND: [],
+  DARK_STORE: [],
 };

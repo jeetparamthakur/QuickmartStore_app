@@ -1,23 +1,17 @@
 import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { ScreenWrapper } from '@/components/layout/ScreenWrapper';
+import { AuthProgress } from '@/components/layout/AuthProgress';
 import { OTPInput } from '@/components/ui/OTPInput';
 import { Button } from '@/components/ui/Button';
 import { authService, partnerService } from '@/services/api';
-import { useAuthStore, isOnboardingComplete } from '@/stores/authStore';
+import { getPostAuthRoute } from '@/services/api/mappers/partnerProfile';
+import { useAuthStore } from '@/stores/authStore';
 import { usePartnerStore } from '@/stores/partnerStore';
+import { syncOnboardingComplete } from '@/utils/syncOnboarding';
 import { colors, spacing, typography } from '@/theme';
-import type { PartnerProfile } from '@/types/partner';
-
-const newPartnerProfile: PartnerProfile = {
-  id: 'partner-new',
-  partnerType: 'STORE',
-  approvalStatus: 'pending',
-  onboardingStep: 'partner_type',
-  isStoreOpen: false,
-  name: '',
-};
 
 export default function OTPScreen() {
   const { phone } = useLocalSearchParams<{ phone: string }>();
@@ -25,7 +19,7 @@ export default function OTPScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [resendTimer, setResendTimer] = useState(30);
-  const setToken = useAuthStore((s) => s.setToken);
+  const setTokens = useAuthStore((s) => s.setTokens);
   const setProfile = usePartnerStore((s) => s.setProfile);
 
   useEffect(() => {
@@ -42,29 +36,15 @@ export default function OTPScreen() {
     setError('');
     setLoading(true);
     try {
-      const { token } = await authService.verifyOtp(phone ?? '', otp);
-      await setToken(token);
+      const { token, refreshToken } = await authService.verifyOtp(phone ?? '', otp);
+      await setTokens(token, refreshToken);
 
-      const onboardingDone = await isOnboardingComplete();
-      if (!onboardingDone) {
-        setProfile(newPartnerProfile);
-        router.replace('/(onboarding)/partner-type');
-        return;
-      }
-
-      try {
-        const profile = await partnerService.getProfile();
-        setProfile(profile);
-        if (profile.approvalStatus === 'approved') {
-          router.replace('/(app)/(tabs)');
-        } else {
-          router.replace('/(onboarding)/pending-approval');
-        }
-      } catch {
-        setProfile(newPartnerProfile);
-        router.replace('/(onboarding)/partner-type');
-      }
-    } catch {
+      const profile = await partnerService.getProfile();
+      setProfile(profile);
+      await syncOnboardingComplete(profile);
+      router.replace(getPostAuthRoute(profile) as '/');
+    } catch (err) {
+      console.error('[OTP] verifyOtp failed:', err);
       setError('Invalid OTP. Please try again.');
     } finally {
       setLoading(false);
@@ -80,6 +60,13 @@ export default function OTPScreen() {
   return (
     <ScreenWrapper scroll={false} edges={['top', 'bottom']}>
       <View style={styles.container}>
+        <AuthProgress currentStep={2} />
+
+        <TouchableOpacity style={styles.backRow} onPress={() => router.back()}>
+          <Ionicons name="arrow-back" size={20} color={colors.textSecondary} />
+          <Text style={styles.backText}>Edit mobile number</Text>
+        </TouchableOpacity>
+
         <Text style={styles.title}>Verify OTP</Text>
         <Text style={styles.subtitle}>
           Enter the 6-digit code sent to{'\n'}
@@ -89,7 +76,9 @@ export default function OTPScreen() {
         <OTPInput value={otp} onChange={setOtp} />
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        <Button title="Verify & Continue" onPress={handleVerify} loading={loading} fullWidth />
+        <View style={styles.cta}>
+          <Button title="Verify & Continue" onPress={handleVerify} loading={loading} fullWidth />
+        </View>
 
         <Text style={styles.resend} onPress={handleResend}>
           {resendTimer > 0 ? `Resend OTP in ${resendTimer}s` : 'Resend OTP'}
@@ -100,10 +89,18 @@ export default function OTPScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: spacing.lg, paddingTop: spacing.huge },
+  container: { flex: 1, padding: spacing.lg, paddingTop: spacing.xl },
+  backRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginBottom: spacing.lg,
+  },
+  backText: { ...typography.bodySmall, color: colors.textSecondary },
   title: { ...typography.h1, color: colors.text, marginBottom: spacing.sm },
   subtitle: { ...typography.body, color: colors.textSecondary, marginBottom: spacing.xl },
   phone: { fontWeight: '600', color: colors.text },
   error: { ...typography.caption, color: colors.danger, textAlign: 'center', marginBottom: spacing.md },
+  cta: { marginTop: spacing.md },
   resend: { ...typography.bodySmall, color: colors.primary, textAlign: 'center', marginTop: spacing.xl },
 });

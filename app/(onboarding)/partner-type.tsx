@@ -1,63 +1,100 @@
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { useState } from 'react';
+import { View, Text, StyleSheet, Alert } from 'react-native';
 import { router, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { ScreenWrapper } from '@/components/layout/ScreenWrapper';
-import { StepProgress } from '@/components/layout/StepProgress';
+import { AuthProgress } from '@/components/layout/AuthProgress';
+import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { Button } from '@/components/ui/Button';
 import { usePartnerStore } from '@/stores/partnerStore';
+import { onboardingService } from '@/services/api';
 import {
   PARTNER_TYPE_LABELS,
   PARTNER_TYPE_DESCRIPTIONS,
+  PARTNER_TYPE_BENEFITS,
   type PartnerType,
 } from '@/types/partner';
 import { colors, radius, spacing, typography, shadows } from '@/theme';
 
-const partnerTypes: { type: PartnerType; icon: keyof typeof Ionicons.glyphMap; emoji: string }[] = [
-  { type: 'STORE', icon: 'storefront', emoji: '🏪' },
-  { type: 'INDEPENDENT_SELLER', icon: 'bag-handle', emoji: '🛍' },
-  { type: 'BRAND', icon: 'business', emoji: '🏢' },
-  { type: 'DARK_STORE', icon: 'flash', emoji: '⚡' },
-];
+const SELLER_TYPES: PartnerType[] = ['STORE', 'INDEPENDENT_SELLER'];
+
+const PARTNER_ICONS: Record<PartnerType, keyof typeof Ionicons.glyphMap> = {
+  STORE: 'storefront-outline',
+  INDEPENDENT_SELLER: 'person-outline',
+  BRAND: 'business-outline',
+  DARK_STORE: 'flash-outline',
+};
 
 export default function PartnerTypeScreen() {
   const setPartnerType = usePartnerStore((s) => s.setPartnerType);
-  const currentType = usePartnerStore((s) => s.profile?.partnerType);
+  const currentType = usePartnerStore((s) => s.profile?.partnerType) ?? 'STORE';
+  const [selectedType, setSelectedType] = useState<PartnerType>(
+    SELLER_TYPES.includes(currentType) ? currentType : 'STORE'
+  );
+  const [loading, setLoading] = useState(false);
 
-  function handleSelect(type: PartnerType) {
-    setPartnerType(type);
+  function handleTabChange(type: PartnerType) {
+    setSelectedType(type);
   }
 
-  function handleContinue() {
-    router.push('/(onboarding)/business-details');
+  async function handleContinue() {
+    setPartnerType(selectedType);
+    setLoading(true);
+    try {
+      await onboardingService.update({
+        partnerType: selectedType,
+        onboardingStep: 'business_details',
+      });
+      router.push('/(onboarding)/business-details');
+    } catch {
+      Alert.alert('Error', 'Could not save your selection. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   }
+
+  const benefits = PARTNER_TYPE_BENEFITS[selectedType];
 
   return (
     <>
-      <Stack.Screen options={{ title: 'Choose Partner Type' }} />
+      <Stack.Screen options={{ title: 'Choose Seller Type', headerShown: false }} />
       <ScreenWrapper>
-        <StepProgress currentStep={1} totalSteps={5} />
-        <Text style={styles.title}>Choose Your Partner Type</Text>
-        <Text style={styles.subtitle}>Select the option that best describes your business</Text>
+        <AuthProgress currentStep={3} />
 
-        {partnerTypes.map(({ type, emoji }) => (
-          <TouchableOpacity
-            key={type}
-            style={[styles.card, currentType === type && styles.cardSelected]}
-            onPress={() => handleSelect(type)}
-            activeOpacity={0.9}
-          >
-            <Text style={styles.emoji}>{emoji}</Text>
-            <View style={styles.cardContent}>
-              <Text style={styles.cardTitle}>{PARTNER_TYPE_LABELS[type]}</Text>
-              <Text style={styles.cardDesc}>{PARTNER_TYPE_DESCRIPTIONS[type]}</Text>
+        <Text style={styles.title}>How do you want to sell?</Text>
+        <Text style={styles.subtitle}>Choose the path that fits your business</Text>
+
+        <SegmentedControl
+          options={[
+            { value: 'STORE', label: PARTNER_TYPE_LABELS.STORE },
+            { value: 'INDEPENDENT_SELLER', label: PARTNER_TYPE_LABELS.INDEPENDENT_SELLER },
+          ]}
+          value={selectedType}
+          onChange={handleTabChange}
+        />
+
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <View style={styles.iconWrap}>
+              <Ionicons name={PARTNER_ICONS[selectedType]} size={28} color={colors.primary} />
             </View>
-            {currentType === type && (
-              <Ionicons name="checkmark-circle" size={24} color={colors.primary} />
-            )}
-          </TouchableOpacity>
-        ))}
+            <View style={styles.cardHeaderText}>
+              <Text style={styles.cardTitle}>{PARTNER_TYPE_LABELS[selectedType]}</Text>
+              <Text style={styles.cardDesc}>{PARTNER_TYPE_DESCRIPTIONS[selectedType]}</Text>
+            </View>
+          </View>
 
-        <Button title="Continue" onPress={handleContinue} fullWidth style={styles.btn} />
+          <View style={styles.benefits}>
+            {benefits.map((benefit) => (
+              <View key={benefit} style={styles.benefitRow}>
+                <Ionicons name="checkmark-circle" size={18} color={colors.success} />
+                <Text style={styles.benefitText}>{benefit}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        <Button title="Continue" onPress={handleContinue} loading={loading} fullWidth style={styles.btn} />
       </ScreenWrapper>
     </>
   );
@@ -67,20 +104,33 @@ const styles = StyleSheet.create({
   title: { ...typography.h1, color: colors.text, marginBottom: spacing.sm },
   subtitle: { ...typography.body, color: colors.textSecondary, marginBottom: spacing.xl },
   card: {
-    flexDirection: 'row',
-    alignItems: 'center',
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
-    padding: spacing.lg,
-    marginBottom: spacing.md,
-    borderWidth: 2,
-    borderColor: 'transparent',
+    padding: spacing.xl,
+    marginTop: spacing.xl,
+    borderWidth: 1,
+    borderColor: colors.border,
     ...shadows.sm,
   },
-  cardSelected: { borderColor: colors.primary, backgroundColor: '#EEF2FF' },
-  emoji: { fontSize: 28, marginRight: spacing.md },
-  cardContent: { flex: 1 },
-  cardTitle: { ...typography.bodyMedium, color: colors.text },
-  cardDesc: { ...typography.caption, color: colors.textSecondary, marginTop: 4 },
-  btn: { marginTop: spacing.lg },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: spacing.lg,
+  },
+  iconWrap: {
+    width: 52,
+    height: 52,
+    borderRadius: radius.md,
+    backgroundColor: colors.primaryMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.md,
+  },
+  cardHeaderText: { flex: 1 },
+  cardTitle: { ...typography.h3, color: colors.text, marginBottom: spacing.xs },
+  cardDesc: { ...typography.bodySmall, color: colors.textSecondary },
+  benefits: { gap: spacing.md },
+  benefitRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  benefitText: { ...typography.bodySmall, color: colors.text, flex: 1 },
+  btn: { marginTop: spacing.xl },
 });

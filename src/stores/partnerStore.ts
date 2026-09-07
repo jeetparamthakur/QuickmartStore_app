@@ -44,18 +44,39 @@ export const usePartnerStore = create<PartnerState>((set, get) => ({
     })),
 
   setBusinessDetails: (details) =>
-    set((s) => ({
-      profile: {
-        ...(s.profile ?? defaultProfile),
-        businessDetails: details,
-        name: details.fullName,
-        onboardingStep:
-          s.profile?.partnerType === 'STORE' ||
-          s.profile?.partnerType === 'DARK_STORE'
-            ? 'store_details'
-            : 'seller_setup',
-      },
-    })),
+    set((s) => {
+      const profile = s.profile ?? defaultProfile;
+      const isStore = profile.partnerType === 'STORE';
+
+      return {
+        profile: {
+          ...profile,
+          businessDetails: details,
+          name: details.fullName,
+          onboardingStep: isStore ? 'store_details' : 'seller_setup',
+          ...(isStore && details.storeName
+            ? {
+                storeDetails: {
+                  ...profile.storeDetails,
+                  name: details.storeName,
+                  description: details.description ?? profile.storeDetails?.description ?? '',
+                  address: profile.storeDetails?.address ?? '',
+                  city: profile.storeDetails?.city ?? '',
+                  area: profile.storeDetails?.area ?? '',
+                  pincode: profile.storeDetails?.pincode ?? '',
+                  openingTime: profile.storeDetails?.openingTime ?? '08:00',
+                  closingTime: profile.storeDetails?.closingTime ?? '22:00',
+                  is24Hours: profile.storeDetails?.is24Hours ?? false,
+                  deliveryRadius: profile.storeDetails?.deliveryRadius ?? 5,
+                  partnerPickupRadiusKm: profile.storeDetails?.partnerPickupRadiusKm ?? 3,
+                  platformDeliveryEnabled: profile.storeDetails?.platformDeliveryEnabled ?? true,
+                  contactNumber: profile.storeDetails?.contactNumber ?? details.mobile ?? '',
+                },
+              }
+            : {}),
+        },
+      };
+    }),
 
   setStoreDetails: (details) =>
     set((s) => ({

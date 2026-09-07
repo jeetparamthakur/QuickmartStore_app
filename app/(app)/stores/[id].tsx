@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ScreenWrapper } from '@/components/layout/ScreenWrapper';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Button } from '@/components/ui/Button';
-import { storesService } from '@/services/api';
+import { storesService, categoriesService } from '@/services/api';
 import { isStoreLocationComplete } from '@/utils/geo';
 import { usePartnerConfig } from '@/hooks/usePermissions';
 import { colors, radius, spacing, typography } from '@/theme';
@@ -17,6 +17,12 @@ export default function StoreDetailScreen() {
   const { data: store } = useQuery({
     queryKey: ['store', id],
     queryFn: () => storesService.get(id!),
+    enabled: !!id,
+  });
+
+  const { data: categories } = useQuery({
+    queryKey: ['categories', id],
+    queryFn: () => categoriesService.list(id!),
     enabled: !!id,
   });
 
@@ -49,20 +55,23 @@ export default function StoreDetailScreen() {
         {!locationComplete && (
           <View style={styles.warning}>
             <Text style={styles.warningText}>
-              Store location incomplete. Set location and radius so customers can see your products.
+              Store location incomplete. Set location and service radius to list your products.
             </Text>
           </View>
         )}
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Store Information</Text>
-          <InfoRow label="Category" value={store.category} />
+          <InfoRow label="Business Type" value={store.category} />
           <InfoRow label="City" value={store.city ?? '-'} />
           <InfoRow label="Area" value={store.area ?? '-'} />
           <InfoRow label="Pincode" value={store.pincode ?? '-'} />
           <InfoRow label="Address" value={store.address} />
           <InfoRow label="Contact" value={store.contactNumber} />
-          <InfoRow label="Hours" value={`${store.openingTime} - ${store.closingTime}`} />
+          <InfoRow
+            label="Hours"
+            value={store.is24Hours ? '24 Hours' : `${store.openingTime} - ${store.closingTime}`}
+          />
           <InfoRow label="Product Visibility Radius" value={`${store.deliveryRadius} km`} />
           {partnerConfig.showDeliveryPartnerSettings && (
             <>
@@ -77,6 +86,28 @@ export default function StoreDetailScreen() {
         </View>
 
         <Text style={styles.description}>{store.description}</Text>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Product Categories</Text>
+          {(categories?.length ?? 0) === 0 && (
+            <View style={styles.warning}>
+              <Text style={styles.warningText}>
+                Add at least one product category before listing products in this store.
+              </Text>
+            </View>
+          )}
+          <InfoRow
+            label="Categories"
+            value={categories ? String(categories.length) : '—'}
+          />
+          <Button
+            title="Manage Categories"
+            variant="secondary"
+            onPress={() => router.push(`/(app)/stores/${id}/categories`)}
+            fullWidth
+            style={{ marginTop: spacing.md }}
+          />
+        </View>
 
         <Button
           title="Edit Location & Visibility Radius"

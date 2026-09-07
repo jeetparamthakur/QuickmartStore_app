@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { LocationPicker } from '@/components/location/LocationPicker';
 import { AddressSearchInput } from '@/components/location/AddressSearchInput';
 import { DeliveryRadiusSlider } from '@/components/location/DeliveryRadiusSlider';
+import { useCityMapFocus } from '@/hooks/useCityMapFocus';
 import { storesService } from '@/services/api';
 import type { AddressResult } from '@/utils/address';
 import { colors, spacing, typography } from '@/theme';
@@ -15,6 +16,7 @@ import { colors, spacing, typography } from '@/theme';
 export default function EditStoreLocationScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const queryClient = useQueryClient();
+  const { mapFocus, onCityChange, markCityFromAddress } = useCityMapFocus();
 
   const { data: store } = useQuery({
     queryKey: ['store', id],
@@ -70,6 +72,7 @@ export default function EditStoreLocationScreen() {
   }
 
   function applyAddress(result: AddressResult) {
+    markCityFromAddress();
     setForm((f) => ({
       ...f,
       address: result.addressLine,
@@ -79,6 +82,11 @@ export default function EditStoreLocationScreen() {
       latitude: result.latitude,
       longitude: result.longitude,
     }));
+  }
+
+  function handleCityChange(city: string) {
+    update('city', city);
+    onCityChange(city);
   }
 
   function handleSave() {
@@ -99,11 +107,11 @@ export default function EditStoreLocationScreen() {
       <ScreenWrapper>
         <Text style={styles.title}>Store Location & Visibility</Text>
         <Text style={styles.subtitle}>
-          Update where your store is and how far customers can see your products
+          Update your store location and product visibility radius
         </Text>
 
         <AddressSearchInput onSelect={applyAddress} />
-        <Input label="City *" value={form.city} onChangeText={(v) => update('city', v)} />
+        <Input label="City *" value={form.city} onChangeText={handleCityChange} />
         <Input label="Area *" value={form.area} onChangeText={(v) => update('area', v)} />
         <Input
           label="Pincode *"
@@ -118,9 +126,10 @@ export default function EditStoreLocationScreen() {
           latitude={form.latitude}
           longitude={form.longitude}
           deliveryRadiusKm={form.deliveryRadius}
+          mapFocus={mapFocus}
+          onCurrentLocationResolved={applyAddress}
           onLocationChange={(lat, lng) => {
-            update('latitude', lat);
-            update('longitude', lng);
+            setForm((f) => ({ ...f, latitude: lat, longitude: lng }));
           }}
         />
 

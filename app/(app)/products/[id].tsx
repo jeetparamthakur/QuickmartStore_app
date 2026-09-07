@@ -7,6 +7,7 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { productsService } from '@/services/api';
 import { formatCurrency } from '@/utils/format';
+import { formatPackageSize, formatRateLabel } from '@/utils/pricing';
 import { colors, radius, spacing, typography } from '@/theme';
 
 export default function ProductDetailScreen() {
@@ -52,8 +53,14 @@ export default function ProductDetailScreen() {
 
         <View style={styles.infoCard}>
           <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Package</Text>
+            <Text style={styles.infoValue}>
+              {formatPackageSize(product.packageSize, product.unitType, product.customUnit)}
+            </Text>
+          </View>
+          <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Stock</Text>
-            <Text style={styles.infoValue}>{product.quantity} units</Text>
+            <Text style={styles.infoValue}>{product.quantity} packs</Text>
           </View>
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>SKU</Text>
@@ -65,6 +72,32 @@ export default function ProductDetailScreen() {
               product.stockStatus === 'in_stock' ? 'success' : product.stockStatus === 'low_stock' ? 'warning' : 'danger'
             } />
           </View>
+        </View>
+
+        <View style={styles.infoCard}>
+          <Text style={styles.sectionTitle}>Seller Pricing</Text>
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Purchase Price</Text>
+            <Text style={styles.infoValue}>{formatCurrency(product.purchasePrice)}</Text>
+          </View>
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Selling Price</Text>
+            <Text style={styles.infoValue}>{formatCurrency(product.sellingPrice)}</Text>
+          </View>
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Margin</Text>
+            <Text style={[styles.infoValue, { color: product.marginAmount >= 0 ? colors.success : colors.danger }]}>
+              {formatCurrency(product.marginAmount)} ({product.marginPercent}%)
+            </Text>
+          </View>
+          {product.pricePerUnit > 0 && (
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Rate</Text>
+              <Text style={styles.infoValue}>
+                {formatRateLabel(product.pricePerUnit, product.unitType, product.customUnit)}
+              </Text>
+            </View>
+          )}
         </View>
 
         {product.status === 'rejected' && product.rejectionReason && (
@@ -90,6 +123,7 @@ const styles = StyleSheet.create({
   mrp: { ...typography.body, color: colors.textMuted, textDecorationLine: 'line-through' },
   discount: { ...typography.bodySmall, color: colors.success, fontWeight: '600' },
   infoCard: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.lg, marginTop: spacing.xl },
+  sectionTitle: { ...typography.bodyMedium, color: colors.text, marginBottom: spacing.md, fontWeight: '600' },
   infoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md },
   infoLabel: { ...typography.bodySmall, color: colors.textSecondary },
   infoValue: { ...typography.bodyMedium, color: colors.text },

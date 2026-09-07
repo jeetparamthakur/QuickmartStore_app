@@ -2,15 +2,17 @@ import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
 
 const TOKEN_KEY = 'auth_token';
+const REFRESH_TOKEN_KEY = 'auth_refresh_token';
 const PHONE_KEY = 'auth_phone';
 const ONBOARDING_COMPLETE_KEY = 'onboarding_complete';
 
 type AuthState = {
   token: string | null;
+  refreshToken: string | null;
   phone: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  setToken: (token: string) => Promise<void>;
+  setTokens: (token: string, refreshToken: string) => Promise<void>;
   setPhone: (phone: string) => Promise<void>;
   loadSession: () => Promise<void>;
   logout: () => Promise<void>;
@@ -18,13 +20,15 @@ type AuthState = {
 
 export const useAuthStore = create<AuthState>((set) => ({
   token: null,
+  refreshToken: null,
   phone: null,
   isLoading: true,
   isAuthenticated: false,
 
-  setToken: async (token) => {
+  setTokens: async (token, refreshToken) => {
     await SecureStore.setItemAsync(TOKEN_KEY, token);
-    set({ token, isAuthenticated: true });
+    await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, refreshToken);
+    set({ token, refreshToken, isAuthenticated: true });
   },
 
   setPhone: async (phone) => {
@@ -35,9 +39,11 @@ export const useAuthStore = create<AuthState>((set) => ({
   loadSession: async () => {
     try {
       const token = await SecureStore.getItemAsync(TOKEN_KEY);
+      const refreshToken = await SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
       const phone = await SecureStore.getItemAsync(PHONE_KEY);
       set({
         token,
+        refreshToken,
         phone,
         isAuthenticated: !!token,
         isLoading: false,
@@ -49,8 +55,9 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   logout: async () => {
     await SecureStore.deleteItemAsync(TOKEN_KEY);
+    await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
     await SecureStore.deleteItemAsync(PHONE_KEY);
-    set({ token: null, phone: null, isAuthenticated: false });
+    set({ token: null, refreshToken: null, phone: null, isAuthenticated: false });
   },
 }));
 

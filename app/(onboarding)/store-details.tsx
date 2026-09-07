@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { Text, StyleSheet, TouchableOpacity, Alert, Pressable, View } from 'react-native';
 import { router, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { ScreenWrapper } from '@/components/layout/ScreenWrapper';
@@ -9,18 +9,22 @@ import { Button } from '@/components/ui/Button';
 import { LocationPicker } from '@/components/location/LocationPicker';
 import { AddressSearchInput } from '@/components/location/AddressSearchInput';
 import { DeliveryRadiusSlider } from '@/components/location/DeliveryRadiusSlider';
+import { useCityMapFocus } from '@/hooks/useCityMapFocus';
 import { usePartnerStore } from '@/stores/partnerStore';
+import { useAuthStore } from '@/stores/authStore';
+import { onboardingService } from '@/services/api';
 import type { AddressResult } from '@/utils/address';
 import { colors, radius, spacing, typography } from '@/theme';
 
 export default function StoreDetailsScreen() {
   const setStoreDetails = usePartnerStore((s) => s.setStoreDetails);
   const existing = usePartnerStore((s) => s.profile?.storeDetails);
+  const businessDetails = usePartnerStore((s) => s.profile?.businessDetails);
+  const authPhone = useAuthStore((s) => s.phone);
+  const [loading, setLoading] = useState(false);
+  const { mapFocus, onCityChange, markCityFromAddress } = useCityMapFocus();
 
   const [form, setForm] = useState({
-    name: existing?.name ?? '',
-    category: existing?.category ?? '',
-    description: existing?.description ?? '',
     address: existing?.address ?? '',
     city: existing?.city ?? '',
     area: existing?.area ?? '',
@@ -29,17 +33,18 @@ export default function StoreDetailsScreen() {
     longitude: existing?.longitude ?? 0,
     openingTime: existing?.openingTime ?? '08:00',
     closingTime: existing?.closingTime ?? '22:00',
+    is24Hours: existing?.is24Hours ?? false,
     deliveryRadius: existing?.deliveryRadius ?? 5,
     partnerPickupRadiusKm: existing?.partnerPickupRadiusKm ?? 3,
     platformDeliveryEnabled: existing?.platformDeliveryEnabled ?? true,
-    contactNumber: existing?.contactNumber ?? '',
   });
 
-  function update(key: string, value: string | number) {
+  function update(key: string, value: string | number | boolean) {
     setForm((f) => ({ ...f, [key]: value }));
   }
 
   function applyAddress(result: AddressResult) {
+    markCityFromAddress();
     setForm((f) => ({
       ...f,
       address: result.addressLine,
@@ -51,7 +56,12 @@ export default function StoreDetailsScreen() {
     }));
   }
 
-  function handleContinue() {
+  function handleCityChange(city: string) {
+    update('city', city);
+    onCityChange(city);
+  }
+
+  async function handleContinue() {
     if (!form.city || form.pincode.length !== 6) {
       Alert.alert('Required', 'Please enter city and 6-digit pincode');
       return;
@@ -61,21 +71,40 @@ export default function StoreDetailsScreen() {
       return;
     }
 
-    setStoreDetails({
+    const storeDetails = {
       ...form,
+      name: businessDetails?.storeName ?? existing?.name ?? '',
+      description: businessDetails?.description ?? existing?.description ?? '',
+      contactNumber: authPhone ?? existing?.contactNumber ?? '',
       deliveryRadius: form.deliveryRadius,
-    });
-    router.push('/(onboarding)/kyc');
+      is24Hours: form.is24Hours,
+      openingTime: form.is24Hours ? '00:00' : form.openingTime,
+      closingTime: form.is24Hours ? '23:59' : form.closingTime,
+    };
+
+    setStoreDetails(storeDetails);
+    setLoading(true);
+    try {
+      await onboardingService.update({
+        storeDetails,
+        onboardingStep: 'kyc',
+      });
+      router.push('/(onboarding)/kyc');
+    } catch {
+      Alert.alert('Error', 'Could not save store details. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
     <>
-      <Stack.Screen options={{ title: 'Store Details' }} />
+      <Stack.Screen options={{ title: 'Store Location' }} />
       <ScreenWrapper>
         <StepProgress currentStep={3} totalSteps={5} />
-        <Text style={styles.title}>Store Details</Text>
+        <Text style={styles.title}>Store Location</Text>
         <Text style={styles.subtitle}>
-          Set your store location and how far customers can see your products
+          Set your store location and delivery area
         </Text>
 
         <TouchableOpacity style={styles.uploadBox}>
@@ -83,14 +112,10 @@ export default function StoreDetailsScreen() {
           <Text style={styles.uploadText}>Upload Store Logo</Text>
         </TouchableOpacity>
 
-        <Input label="Store Name *" value={form.name} onChangeText={(v) => update('name', v)} />
-        <Input label="Store Category *" value={form.category} onChangeText={(v) => update('category', v)} />
-        <Input label="Store Description" value={form.description} onChangeText={(v) => update('description', v)} multiline />
-
         <Text style={styles.sectionLabel}>Store Location</Text>
         <AddressSearchInput onSelect={applyAddress} placeholder="Search store address on Google Maps..." />
 
-        <Input label="City *" value={form.city} onChangeText={(v) => update('city', v)} placeholder="e.g. Ludhiana" />
+        <Input label="City *" value={form.city} onChangeText={handleCityChange} placeholder="e.g. Ludhiana" />
         <Input label="Area / Locality *" value={form.area} onChangeText={(v) => update('area', v)} placeholder="e.g. Model Town" />
         <Input
           label="Pincode *"
@@ -105,9 +130,10 @@ export default function StoreDetailsScreen() {
           latitude={form.latitude}
           longitude={form.longitude}
           deliveryRadiusKm={form.deliveryRadius}
+          mapFocus={mapFocus}
+          onCurrentLocationResolved={applyAddress}
           onLocationChange={(lat, lng) => {
-            update('latitude', lat);
-            update('longitude', lng);
+            setForm((f) => ({ ...f, latitude: lat, longitude: lng }));
           }}
           label="Pin store location on map *"
         />
@@ -127,11 +153,30 @@ export default function StoreDetailsScreen() {
           hint={`Partners within ${Math.round(form.partnerPickupRadiusKm)} km of your store can accept delivery requests for ready orders.`}
         />
 
-        <Input label="Opening Time" value={form.openingTime} onChangeText={(v) => update('openingTime', v)} placeholder="08:00" />
-        <Input label="Closing Time" value={form.closingTime} onChangeText={(v) => update('closingTime', v)} placeholder="22:00" />
-        <Input label="Store Contact Number *" value={form.contactNumber} onChangeText={(v) => update('contactNumber', v)} keyboardType="phone-pad" />
+        <Text style={styles.sectionLabel}>Store Hours</Text>
+        <Pressable
+          style={styles.hoursOption}
+          onPress={() => update('is24Hours', !form.is24Hours)}
+        >
+          <View style={[styles.checkbox, form.is24Hours && styles.checkboxChecked]}>
+            {form.is24Hours && <Ionicons name="checkmark" size={14} color={colors.white} />}
+          </View>
+          <View style={styles.hoursOptionText}>
+            <Text style={styles.hoursOptionTitle}>24 Hours Service</Text>
+            <Text style={styles.hoursOptionHint}>
+              Store is open round the clock for delivery
+            </Text>
+          </View>
+        </Pressable>
 
-        <Button title="Continue" onPress={handleContinue} fullWidth />
+        {!form.is24Hours && (
+          <>
+            <Input label="Opening Time" value={form.openingTime} onChangeText={(v) => update('openingTime', v)} placeholder="08:00" />
+            <Input label="Closing Time" value={form.closingTime} onChangeText={(v) => update('closingTime', v)} placeholder="22:00" />
+          </>
+        )}
+
+        <Button title="Continue" onPress={handleContinue} loading={loading} fullWidth />
       </ScreenWrapper>
     </>
   );
@@ -152,4 +197,33 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   uploadText: { ...typography.bodySmall, color: colors.textMuted, marginTop: spacing.sm },
+  hoursOption: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.md,
+    marginBottom: spacing.lg,
+    padding: spacing.md,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 1,
+    backgroundColor: colors.background,
+  },
+  checkboxChecked: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  hoursOptionText: { flex: 1 },
+  hoursOptionTitle: { ...typography.body, color: colors.text, fontWeight: '600', marginBottom: spacing.xs },
+  hoursOptionHint: { ...typography.bodySmall, color: colors.textSecondary },
 });

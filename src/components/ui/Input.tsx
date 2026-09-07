@@ -1,15 +1,17 @@
-import { TextInput, View, Text, StyleSheet, TextInputProps } from 'react-native';
+import { TextInput, View, Text, StyleSheet, TextInputProps, ViewStyle } from 'react-native';
 import { colors, radius, spacing, typography } from '@/theme';
 
 type Props = TextInputProps & {
   label?: string;
   error?: string;
   hint?: string;
+  containerStyle?: ViewStyle;
+  noMargin?: boolean;
 };
 
-export function Input({ label, error, hint, style, ...props }: Props) {
+export function Input({ label, error, hint, style, containerStyle, noMargin, ...props }: Props) {
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, noMargin && styles.noMargin, containerStyle]}>
       {label && <Text style={styles.label}>{label}</Text>}
       <TextInput
         style={[styles.input, error && styles.inputError, style]}
@@ -24,6 +26,7 @@ export function Input({ label, error, hint, style, ...props }: Props) {
 
 const styles = StyleSheet.create({
   container: { marginBottom: spacing.lg },
+  noMargin: { marginBottom: 0 },
   label: { ...typography.label, color: colors.text, marginBottom: spacing.sm },
   input: {
     backgroundColor: colors.surface,

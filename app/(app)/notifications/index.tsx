@@ -88,7 +88,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  iconUnread: { backgroundColor: '#EEF2FF' },
+  iconUnread: { backgroundColor: colors.primaryMuted },
   content: { flex: 1, marginLeft: spacing.md },
   title: { ...typography.bodyMedium, color: colors.text },
   message: { ...typography.bodySmall, color: colors.textSecondary, marginTop: 2 },

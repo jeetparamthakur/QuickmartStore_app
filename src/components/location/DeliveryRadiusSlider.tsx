@@ -19,7 +19,7 @@ export function DeliveryRadiusSlider({
   label = 'Product Visibility Radius',
   hint,
 }: Props) {
-  const defaultHint = `Customers within ${Math.round(value)} km of your store will see your products.`;
+  const defaultHint = `Your products will be visible within ${Math.round(value)} km of your location.`;
   return (
     <View style={styles.container}>
       <View style={styles.header}>

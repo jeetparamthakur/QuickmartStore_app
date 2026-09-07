@@ -1,4 +1,5 @@
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, radius, spacing, typography } from '@/theme';
 
@@ -8,29 +9,40 @@ type Props = {
   onPress: () => void;
 };
 
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
 export function QuickActionButton({ label, icon, onPress }: Props) {
+  const scale = useSharedValue(1);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
   return (
-    <TouchableOpacity style={styles.button} onPress={onPress} activeOpacity={0.8}>
+    <AnimatedPressable
+      style={[styles.button, animatedStyle]}
+      onPress={onPress}
+      onPressIn={() => { scale.value = withSpring(0.92); }}
+      onPressOut={() => { scale.value = withSpring(1); }}
+    >
       <View style={styles.iconWrap}>
-        <Ionicons name={icon} size={22} color={colors.primary} />
+        <Ionicons name={icon} size={24} color={colors.primary} />
       </View>
       <Text style={styles.label} numberOfLines={2}>{label}</Text>
-    </TouchableOpacity>
+    </AnimatedPressable>
   );
 }
 
 const styles = StyleSheet.create({
-  button: { alignItems: 'center', width: 72 },
+  button: { alignItems: 'center', width: 80 },
   iconWrap: {
-    width: 56,
-    height: 56,
+    width: 60,
+    height: 60,
     borderRadius: radius.lg,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.primaryMuted,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
   },
-  label: { ...typography.caption, color: colors.text, textAlign: 'center' },
+  label: { ...typography.caption, color: colors.text, textAlign: 'center', fontWeight: '600' },
 });

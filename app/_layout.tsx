@@ -7,7 +7,12 @@ import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import * as SplashScreen from 'expo-splash-screen';
 import { useAuthStore } from '@/stores/authStore';
 import { useFeatureFlagStore } from '@/stores/featureFlagStore';
-import { setAuthTokenGetter, setOnUnauthorized } from '@/services/api/client';
+import {
+  setAuthTokenGetter,
+  setOnTokensRefreshed,
+  setOnUnauthorized,
+  setRefreshTokenGetter,
+} from '@/services/api/client';
 import { configService } from '@/services/api';
 import { colors } from '@/theme';
 
@@ -26,6 +31,10 @@ export default function RootLayout() {
 
   useEffect(() => {
     setAuthTokenGetter(() => useAuthStore.getState().token);
+    setRefreshTokenGetter(() => useAuthStore.getState().refreshToken);
+    setOnTokensRefreshed((token, refreshToken) => {
+      void useAuthStore.getState().setTokens(token, refreshToken);
+    });
     setOnUnauthorized(() => logout());
   }, [logout]);
 
@@ -53,7 +62,6 @@ export default function RootLayout() {
             <Stack.Screen name="(auth)" />
             <Stack.Screen name="(onboarding)" />
             <Stack.Screen name="(app)" />
-            <Stack.Screen name="(customer)" />
           </Stack>
         </BottomSheetModalProvider>
       </QueryClientProvider>

@@ -1,7 +1,8 @@
 import { Redirect, Stack } from 'expo-router';
 import { useAuthStore } from '@/stores/authStore';
-import { usePartnerStore } from '@/stores/partnerStore';
+import { usePartnerStore, getOnboardingRoute } from '@/stores/partnerStore';
 import { OrderAlertListener } from '@/components/layout/OrderAlertListener';
+import { colors } from '@/theme';
 
 export default function AppLayout() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
@@ -12,7 +13,8 @@ export default function AppLayout() {
   }
 
   if (!profile || profile.onboardingStep !== 'completed') {
-    return <Redirect href="/(onboarding)/partner-type" />;
+    const step = profile?.onboardingStep ?? 'partner_type';
+    return <Redirect href={getOnboardingRoute(step) as '/'} />;
   }
 
   if (profile.approvalStatus !== 'approved') {
@@ -22,7 +24,7 @@ export default function AppLayout() {
   return (
     <>
       <OrderAlertListener />
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#F8FAFC' } }}>
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="orders/[id]" options={{ headerShown: true, title: 'Order Details' }} />
       <Stack.Screen name="products/add/index" options={{ headerShown: true, title: 'Add Product' }} />
@@ -30,6 +32,8 @@ export default function AppLayout() {
       <Stack.Screen name="inventory/index" options={{ headerShown: true, title: 'Inventory' }} />
       <Stack.Screen name="stores/index" options={{ headerShown: true, title: 'My Stores' }} />
       <Stack.Screen name="stores/[id]" options={{ headerShown: true, title: 'Store Details' }} />
+      <Stack.Screen name="stores/[id]/categories/index" options={{ headerShown: true, title: 'Product Categories' }} />
+      <Stack.Screen name="stores/[id]/categories/add" options={{ headerShown: true, title: 'Add Category' }} />
       <Stack.Screen name="stores/edit-location" options={{ headerShown: true, title: 'Edit Location' }} />
       <Stack.Screen name="stores/edit-delivery-partner" options={{ headerShown: true, title: 'Delivery Partner Settings' }} />
       <Stack.Screen name="staff/index" options={{ headerShown: true, title: 'Staff Management' }} />

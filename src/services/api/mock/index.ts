@@ -1,5 +1,7 @@
 import type { Order, OrderStatus } from '@/types/order';
 import type { Product, ProductStatus, CatalogSuggestion, NearbyProductsResponse } from '@/types/product';
+import type { ProductCategory } from '@/types/category';
+import type { ProductListFilters } from '@/types/product';
 import type { Store, StaffMember } from '@/types/store';
 import type { DeliveryRequest, PartnerDeliveryPreferences } from '@/types/delivery';
 import type {
@@ -135,10 +137,29 @@ let mockOrders: Order[] = [
 
 let mockDeliveryRequests: DeliveryRequest[] = [];
 
+let mockCategories: ProductCategory[] = [
+  { id: 'pc1', storeId: 's1', name: 'Dairy', sortOrder: 0, createdAt: new Date().toISOString() },
+  { id: 'pc2', storeId: 's1', name: 'Bakery', sortOrder: 1, createdAt: new Date().toISOString() },
+  { id: 'pc3', storeId: 's1', name: 'Snacks', sortOrder: 2, createdAt: new Date().toISOString() },
+  { id: 'pc4', storeId: 's2', name: 'Dairy', sortOrder: 0, createdAt: new Date().toISOString() },
+  { id: 'pc5', storeId: 's3', name: 'Fruits', sortOrder: 0, createdAt: new Date().toISOString() },
+  { id: 'pc6', storeId: 's4', name: 'Grocery', sortOrder: 0, createdAt: new Date().toISOString() },
+  { id: 'pc7', storeId: 's5', name: 'Snacks', sortOrder: 0, createdAt: new Date().toISOString() },
+];
+
+function getCategoryProductCount(categoryId: string): number {
+  return mockProducts.filter((p) => p.categoryId === categoryId).length;
+}
+
+function withProductCounts(categories: ProductCategory[]): ProductCategory[] {
+  return categories.map((c) => ({ ...c, productCount: getCategoryProductCount(c.id) }));
+}
+
 let mockProducts: Product[] = [
   {
     id: 'p1',
     name: 'Amul Taaza Milk 1L',
+    categoryId: 'pc1',
     category: 'Dairy',
     brand: 'Amul',
     description: 'Fresh toned milk',
@@ -153,10 +174,17 @@ let mockProducts: Product[] = [
     stockStatus: 'in_stock',
     storeId: 's1',
     createdAt: new Date().toISOString(),
+    unitType: 'l',
+    packageSize: 1,
+    purchasePrice: 48,
+    pricePerUnit: 56,
+    marginAmount: 8,
+    marginPercent: 16.67,
   },
   {
     id: 'p2',
     name: 'Britannia Bread',
+    categoryId: 'pc2',
     category: 'Bakery',
     brand: 'Britannia',
     description: 'Whole wheat bread',
@@ -171,10 +199,17 @@ let mockProducts: Product[] = [
     stockStatus: 'low_stock',
     storeId: 's1',
     createdAt: new Date().toISOString(),
+    unitType: 'pcs',
+    packageSize: 1,
+    purchasePrice: 38,
+    pricePerUnit: 45,
+    marginAmount: 7,
+    marginPercent: 18.42,
   },
   {
     id: 'p3',
     name: 'New Product Draft',
+    categoryId: 'pc3',
     category: 'Snacks',
     description: 'Draft product',
     images: [],
@@ -188,10 +223,17 @@ let mockProducts: Product[] = [
     stockStatus: 'out_of_stock',
     storeId: 's1',
     createdAt: new Date().toISOString(),
+    unitType: 'pcs',
+    packageSize: 1,
+    purchasePrice: 75,
+    pricePerUnit: 90,
+    marginAmount: 15,
+    marginPercent: 20,
   },
   {
     id: 'p4',
     name: 'Fresh Apples 1kg',
+    categoryId: 'pc5',
     category: 'Fruits',
     brand: 'Fresh Mart',
     description: 'Crisp red apples',
@@ -206,10 +248,17 @@ let mockProducts: Product[] = [
     stockStatus: 'in_stock',
     storeId: 's3',
     createdAt: new Date().toISOString(),
+    unitType: 'kg',
+    packageSize: 1,
+    purchasePrice: 130,
+    pricePerUnit: 159,
+    marginAmount: 29,
+    marginPercent: 22.31,
   },
   {
     id: 'p5',
     name: 'Maggi Noodles 4-pack',
+    categoryId: 'pc7',
     category: 'Snacks',
     brand: 'Maggi',
     description: 'Instant noodles',
@@ -224,10 +273,17 @@ let mockProducts: Product[] = [
     stockStatus: 'in_stock',
     storeId: 's5',
     createdAt: new Date().toISOString(),
+    unitType: 'pcs',
+    packageSize: 4,
+    purchasePrice: 44,
+    pricePerUnit: 13,
+    marginAmount: 8,
+    marginPercent: 18.18,
   },
   {
     id: 'p6',
     name: 'Basmati Rice 5kg',
+    categoryId: 'pc6',
     category: 'Grocery',
     brand: 'Daily Needs',
     description: 'Premium basmati rice',
@@ -242,10 +298,17 @@ let mockProducts: Product[] = [
     stockStatus: 'in_stock',
     storeId: 's4',
     createdAt: new Date().toISOString(),
+    unitType: 'kg',
+    packageSize: 5,
+    purchasePrice: 380,
+    pricePerUnit: 90,
+    marginAmount: 70,
+    marginPercent: 18.42,
   },
   {
     id: 'p7',
     name: 'Amul Butter 500g',
+    categoryId: 'pc4',
     category: 'Dairy',
     brand: 'Amul',
     description: 'Table butter',
@@ -260,6 +323,12 @@ let mockProducts: Product[] = [
     stockStatus: 'in_stock',
     storeId: 's2',
     createdAt: new Date().toISOString(),
+    unitType: 'g',
+    packageSize: 500,
+    purchasePrice: 230,
+    pricePerUnit: 0.53,
+    marginAmount: 35,
+    marginPercent: 15.22,
   },
 ];
 
@@ -429,11 +498,11 @@ export const mockApi = {
         isStoreOpen: true,
         businessDetails: {
           fullName: 'Rahul Sharma',
-          businessName: 'ABC Supermarket',
-          businessType: 'Grocery',
+          storeName: 'ABC Supermarket',
           mobile: '+919876543210',
           email: 'rahul@example.com',
           description: 'Neighborhood grocery store',
+          panNumber: 'ABCDE1234F',
         },
       };
     },
@@ -564,10 +633,19 @@ export const mockApi = {
   },
 
   products: {
-    list: async (status?: ProductStatus): Promise<Product[]> => {
+    list: async (filters?: ProductListFilters): Promise<Product[]> => {
       await delay();
-      if (!status) return [...mockProducts];
-      return mockProducts.filter((p) => p.status === status);
+      let results = [...mockProducts];
+      if (filters?.status) {
+        results = results.filter((p) => p.status === filters.status);
+      }
+      if (filters?.storeId) {
+        results = results.filter((p) => p.storeId === filters.storeId);
+      }
+      if (filters?.categoryId) {
+        results = results.filter((p) => p.categoryId === filters.categoryId);
+      }
+      return results;
     },
     get: async (id: string): Promise<Product> => {
       await delay();
@@ -577,22 +655,40 @@ export const mockApi = {
     },
     create: async (data: Partial<Product>): Promise<Product> => {
       await delay();
+      if (!data.storeId || !data.categoryId) {
+        throw new Error('storeId and categoryId are required');
+      }
+      const sellingPrice = data.sellingPrice ?? 0;
+      const purchasePrice = data.purchasePrice ?? 0;
+      const packageSize = data.packageSize ?? 1;
+      const pricePerUnit = data.pricePerUnit ?? (packageSize > 0 ? sellingPrice / packageSize : sellingPrice);
+      const marginAmount = data.marginAmount ?? sellingPrice - purchasePrice;
+      const marginPercent =
+        data.marginPercent ??
+        (purchasePrice > 0 ? Math.round((marginAmount / purchasePrice) * 10000) / 100 : 0);
       const product: Product = {
+        ...data,
         id: `p${Date.now()}`,
         name: data.name ?? 'New Product',
+        categoryId: data.categoryId,
         category: data.category ?? 'General',
         description: data.description ?? '',
         images: data.images ?? [],
         mrp: data.mrp ?? 0,
-        sellingPrice: data.sellingPrice ?? 0,
+        sellingPrice,
         discountPercent: data.discountPercent ?? 0,
         quantity: data.quantity ?? 0,
         lowStockThreshold: data.lowStockThreshold ?? 5,
         sku: data.sku ?? `SKU-${Date.now()}`,
-        status: 'pending_review',
+        status: data.status ?? 'pending_review',
         stockStatus: 'in_stock',
         createdAt: new Date().toISOString(),
-        ...data,
+        unitType: data.unitType ?? 'pcs',
+        packageSize,
+        purchasePrice,
+        pricePerUnit,
+        marginAmount,
+        marginPercent,
       };
       mockProducts = [product, ...mockProducts];
       return product;
@@ -622,6 +718,62 @@ export const mockApi = {
         products,
         serviceableStoreCount: storeIds.size,
       };
+    },
+  },
+
+  categories: {
+    list: async (storeId: string): Promise<ProductCategory[]> => {
+      await delay();
+      const categories = mockCategories
+        .filter((c) => c.storeId === storeId)
+        .sort((a, b) => a.sortOrder - b.sortOrder);
+      return withProductCounts(categories);
+    },
+    get: async (id: string): Promise<ProductCategory> => {
+      await delay();
+      const category = mockCategories.find((c) => c.id === id);
+      if (!category) throw new Error('Category not found');
+      return { ...category, productCount: getCategoryProductCount(id) };
+    },
+    create: async (storeId: string, data: { name: string }): Promise<ProductCategory> => {
+      await delay();
+      const trimmed = data.name.trim();
+      if (!trimmed) throw new Error('Category name is required');
+      const duplicate = mockCategories.find(
+        (c) => c.storeId === storeId && c.name.toLowerCase() === trimmed.toLowerCase()
+      );
+      if (duplicate) throw new Error('A category with this name already exists');
+      const storeCategories = mockCategories.filter((c) => c.storeId === storeId);
+      const category: ProductCategory = {
+        id: `pc${Date.now()}`,
+        storeId,
+        name: trimmed,
+        sortOrder: storeCategories.length,
+        productCount: 0,
+        createdAt: new Date().toISOString(),
+      };
+      mockCategories = [...mockCategories, category];
+      return category;
+    },
+    update: async (id: string, data: { name: string }): Promise<ProductCategory> => {
+      await delay();
+      const idx = mockCategories.findIndex((c) => c.id === id);
+      if (idx === -1) throw new Error('Category not found');
+      const trimmed = data.name.trim();
+      if (!trimmed) throw new Error('Category name is required');
+      const storeId = mockCategories[idx].storeId;
+      const duplicate = mockCategories.find(
+        (c) => c.storeId === storeId && c.id !== id && c.name.toLowerCase() === trimmed.toLowerCase()
+      );
+      if (duplicate) throw new Error('A category with this name already exists');
+      mockCategories[idx] = { ...mockCategories[idx], name: trimmed };
+      return { ...mockCategories[idx], productCount: getCategoryProductCount(id) };
+    },
+    delete: async (id: string): Promise<void> => {
+      await delay();
+      const hasProducts = mockProducts.some((p) => p.categoryId === id);
+      if (hasProducts) throw new Error('Cannot delete a category that has products');
+      mockCategories = mockCategories.filter((c) => c.id !== id);
     },
   },
 

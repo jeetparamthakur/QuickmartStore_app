@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import { Modal, View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
-import { Audio } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { ordersService } from '@/services/api';
@@ -63,6 +62,7 @@ export function OrderAlertListener({ enabled = true }: Props) {
 
   async function playAlertSound() {
     try {
+      const { Audio } = await import('expo-av');
       const { sound } = await Audio.Sound.createAsync(
         { uri: 'https://actions.google.com/sounds/v1/alarms/beep_short.ogg' },
         { shouldPlay: true }

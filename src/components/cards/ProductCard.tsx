@@ -2,6 +2,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, radius, spacing, typography, shadows } from '@/theme';
 import { formatCurrency } from '@/utils/format';
+import { formatPackageSize } from '@/utils/pricing';
 import { StatusBadge } from '../ui/StatusBadge';
 import type { Product } from '@/types/product';
 
@@ -24,7 +25,12 @@ export function ProductCard({ product, onPress }: Props) {
       </View>
       <View style={styles.content}>
         <Text style={styles.name} numberOfLines={2}>{product.name}</Text>
-        <Text style={styles.category}>{product.category}</Text>
+        <Text style={styles.category}>
+          {product.packageSize
+            ? `${formatPackageSize(product.packageSize, product.unitType, product.customUnit)} • `
+            : ''}
+          {product.category}
+        </Text>
         <View style={styles.row}>
           <Text style={styles.price}>{formatCurrency(product.sellingPrice)}</Text>
           {product.discountPercent > 0 && (

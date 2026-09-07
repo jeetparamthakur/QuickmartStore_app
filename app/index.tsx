@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Redirect } from 'expo-router';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
-import { useAuthStore, isOnboardingComplete } from '@/stores/authStore';
+import { useAuthStore } from '@/stores/authStore';
 import { usePartnerStore, getOnboardingRoute } from '@/stores/partnerStore';
 import { partnerService } from '@/services/api';
+import { getPostAuthRoute } from '@/services/api/mappers/partnerProfile';
+import { syncOnboardingComplete } from '@/utils/syncOnboarding';
 import { colors } from '@/theme';
 
 export default function Index() {
@@ -11,25 +13,34 @@ export default function Index() {
   const profile = usePartnerStore((s) => s.profile);
   const setProfile = usePartnerStore((s) => s.setProfile);
   const [checking, setChecking] = useState(true);
-  const [onboardingDone, setOnboardingDone] = useState(false);
+  const [route, setRoute] = useState<string | null>(null);
 
   useEffect(() => {
     async function check() {
-      if (isAuthenticated) {
-        const done = await isOnboardingComplete();
-        setOnboardingDone(done);
-        if (done && !profile) {
-          try {
-            const p = await partnerService.getProfile();
-            setProfile(p);
-          } catch {
-            // ignore
-          }
-        }
+      if (!isAuthenticated) {
+        setChecking(false);
+        return;
       }
-      setChecking(false);
+
+      try {
+        let currentProfile = profile;
+        if (!currentProfile) {
+          currentProfile = await partnerService.getProfile();
+          setProfile(currentProfile);
+        }
+        await syncOnboardingComplete(currentProfile);
+        setRoute(getPostAuthRoute(currentProfile));
+      } catch {
+        const step = profile?.onboardingStep ?? 'partner_type';
+        setRoute(getOnboardingRoute(step));
+      } finally {
+        setChecking(false);
+      }
     }
-    if (!isLoading) check();
+
+    if (!isLoading) {
+      check();
+    }
   }, [isLoading, isAuthenticated, profile, setProfile]);
 
   if (isLoading || checking) {
@@ -41,19 +52,14 @@ export default function Index() {
   }
 
   if (!isAuthenticated) {
-    return <Redirect href="/(auth)/splash" />;
+    return <Redirect href="/(auth)/login" />;
   }
 
-  if (!onboardingDone || !profile || profile.onboardingStep !== 'completed') {
-    const step = profile?.onboardingStep ?? 'partner_type';
-    return <Redirect href={getOnboardingRoute(step) as '/'} />;
+  if (route) {
+    return <Redirect href={route as '/'} />;
   }
 
-  if (profile.approvalStatus !== 'approved') {
-    return <Redirect href="/(onboarding)/pending-approval" />;
-  }
-
-  return <Redirect href="/(app)/(tabs)" />;
+  return <Redirect href="/(onboarding)/partner-type" />;
 }
 
 const styles = StyleSheet.create({

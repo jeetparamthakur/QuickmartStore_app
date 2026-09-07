@@ -7,6 +7,20 @@ export type ProductStatus =
 
 export type StockStatus = 'in_stock' | 'low_stock' | 'out_of_stock';
 
+export type ProductUnitType = 'kg' | 'g' | 'l' | 'ml' | 'pcs' | 'units' | 'other';
+
+export type PricingMode = 'total' | 'per_unit' | 'margin';
+
+export const PRODUCT_UNIT_LABELS: Record<ProductUnitType, string> = {
+  kg: 'kg',
+  g: 'g',
+  l: 'L',
+  ml: 'ml',
+  pcs: 'pcs',
+  units: 'units',
+  other: 'other',
+};
+
 export type ProductVariant = {
   id: string;
   size?: string;
@@ -19,6 +33,7 @@ export type ProductVariant = {
 export type Product = {
   id: string;
   name: string;
+  categoryId: string;
   category: string;
   brand?: string;
   description: string;
@@ -36,6 +51,19 @@ export type Product = {
   rejectionReason?: string;
   storeId?: string;
   createdAt: string;
+  unitType: ProductUnitType;
+  customUnit?: string;
+  packageSize: number;
+  purchasePrice: number;
+  pricePerUnit: number;
+  marginAmount: number;
+  marginPercent: number;
+};
+
+export type ProductListFilters = {
+  status?: ProductStatus;
+  storeId?: string;
+  categoryId?: string;
 };
 
 export const PRODUCT_TABS: { key: ProductStatus | 'all'; label: string }[] = [

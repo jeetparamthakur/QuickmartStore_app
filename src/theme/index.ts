@@ -1,33 +1,48 @@
 export const colors = {
-  primary: '#6366F1',
-  primaryDark: '#4F46E5',
-  primaryLight: '#818CF8',
-  secondary: '#0EA5E9',
-  background: '#F8FAFC',
+  primary: '#F97316',
+  primaryDark: '#EA580C',
+  primaryLight: '#FB923C',
+  primaryMuted: '#FFF7ED',
+  secondary: '#E11D48',
+  background: '#FFFBF7',
   surface: '#FFFFFF',
-  surfaceSecondary: '#F1F5F9',
+  surfaceSecondary: '#FEF3E8',
   text: '#0F172A',
   textSecondary: '#64748B',
   textMuted: '#94A3B8',
-  border: '#E2E8F0',
-  borderLight: '#F1F5F9',
+  border: '#FDE8D0',
+  borderLight: '#FFF7ED',
   success: '#10B981',
   successLight: '#D1FAE5',
   warning: '#F59E0B',
   warningLight: '#FEF3C7',
   danger: '#EF4444',
   dangerLight: '#FEE2E2',
-  info: '#3B82F6',
-  infoLight: '#DBEAFE',
+  info: '#D97706',
+  infoLight: '#FEF3C7',
   overlay: 'rgba(15, 23, 42, 0.5)',
   white: '#FFFFFF',
   black: '#000000',
-  orderNew: '#6366F1',
-  orderAccepted: '#3B82F6',
+  orderNew: '#F97316',
+  orderAccepted: '#FB923C',
   orderPreparing: '#F59E0B',
   orderReady: '#10B981',
   orderCompleted: '#64748B',
   orderCancelled: '#EF4444',
+};
+
+export const gradients = {
+  primary: ['#FB923C', '#F97316', '#EA580C'] as const,
+  hero: ['#FFF7ED', '#FFFBF7'] as const,
+  promo: ['#F97316', '#E11D48'] as const,
+};
+
+export const metricAccents = {
+  sales: { bg: '#FFF7ED', icon: '#F97316' },
+  orders: { bg: '#FFF1F2', icon: '#E11D48' },
+  pending: { bg: '#FEF3C7', icon: '#D97706' },
+  earnings: { bg: '#D1FAE5', icon: '#059669' },
+  default: { bg: '#FFF7ED', icon: '#F97316' },
 };
 
 export const spacing = {
@@ -86,6 +101,6 @@ export const shadows = {
   },
 };
 
-export const theme = { colors, spacing, radius, typography, shadows };
+export const theme = { colors, gradients, metricAccents, spacing, radius, typography, shadows };
 
 export type Theme = typeof theme;

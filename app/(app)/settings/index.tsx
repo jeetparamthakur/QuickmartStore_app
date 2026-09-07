@@ -2,11 +2,17 @@ import { View, Text, StyleSheet, Switch } from 'react-native';
 import { Stack } from 'expo-router';
 import { ScreenWrapper } from '@/components/layout/ScreenWrapper';
 import { usePartnerStore } from '@/stores/partnerStore';
+import { useAuthStore } from '@/stores/authStore';
 import { colors, radius, spacing, typography } from '@/theme';
 
 export default function SettingsScreen() {
   const profile = usePartnerStore((s) => s.profile);
   const toggleStoreOpen = usePartnerStore((s) => s.toggleStoreOpen);
+  const authPhone = useAuthStore((s) => s.phone);
+
+  const isStore = profile?.partnerType === 'STORE';
+  const mobile = profile?.businessDetails?.mobile || authPhone || '-';
+  const storeName = profile?.businessDetails?.storeName ?? profile?.storeDetails?.name;
 
   return (
     <>
@@ -15,14 +21,20 @@ export default function SettingsScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Personal Information</Text>
           <SettingRow label="Name" value={profile?.businessDetails?.fullName ?? profile?.name ?? '-'} />
-          <SettingRow label="Mobile" value={profile?.businessDetails?.mobile ?? '-'} />
+          <SettingRow label="Mobile" value={mobile} />
           <SettingRow label="Email" value={profile?.businessDetails?.email ?? '-'} />
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Business Information</Text>
-          <SettingRow label="Business Name" value={profile?.businessDetails?.businessName ?? '-'} />
-          <SettingRow label="Business Type" value={profile?.businessDetails?.businessType ?? '-'} />
+          <Text style={styles.sectionTitle}>{isStore ? 'Store Information' : 'Business Information'}</Text>
+          {isStore ? (
+            <SettingRow label="Store Name" value={storeName ?? '-'} />
+          ) : (
+            <>
+              <SettingRow label="Business Name" value={profile?.businessDetails?.businessName ?? '-'} />
+              <SettingRow label="Business Type" value={profile?.businessDetails?.businessType ?? '-'} />
+            </>
+          )}
           <SettingRow label="GST" value={profile?.businessDetails?.gstNumber ?? 'Not provided'} />
           <SettingRow label="PAN" value={profile?.businessDetails?.panNumber ?? 'Not provided'} />
         </View>

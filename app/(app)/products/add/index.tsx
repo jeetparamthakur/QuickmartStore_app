@@ -1,53 +1,87 @@
-import { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
-import { router, Stack } from 'expo-router';
+import { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
+import { useQuery } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { ScreenWrapper } from '@/components/layout/ScreenWrapper';
 import { StepProgress } from '@/components/layout/StepProgress';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
-import { productsService } from '@/services/api';
+import { UnitTypeSelector } from '@/components/products/UnitTypeSelector';
+import { MarginSummaryCard } from '@/components/products/MarginSummaryCard';
+import { productsService, categoriesService } from '@/services/api';
 import { usePartnerStore } from '@/stores/partnerStore';
+import { useProductPricing } from '@/hooks/useProductPricing';
 import { formatDiscount } from '@/utils/format';
+import { getUnitLabel } from '@/utils/pricing';
+import { isPartnerLocationComplete, getLocationWarningMessage } from '@/utils/partnerLocation';
+import type { PricingMode } from '@/types/product';
 import { colors, radius, spacing, typography } from '@/theme';
 
-function isPartnerLocationComplete(profile: ReturnType<typeof usePartnerStore.getState>['profile']) {
-  const sd = profile?.storeDetails;
-  if (!sd) return false;
-  return !!(sd.latitude && sd.longitude && sd.city && sd.pincode?.length === 6);
-}
+const PRICING_MODE_OPTIONS: { value: PricingMode; label: string }[] = [
+  { value: 'total', label: 'Total Price' },
+  { value: 'per_unit', label: 'Per Unit' },
+  { value: 'margin', label: 'Margin %' },
+];
 
 export default function AddProductScreen() {
+  const { storeId, categoryId } = useLocalSearchParams<{ storeId: string; categoryId: string }>();
   const profile = usePartnerStore((s) => s.profile);
   const locationComplete = isPartnerLocationComplete(profile);
   const [step, setStep] = useState(1);
   const [images, setImages] = useState<string[]>([]);
   const [form, setForm] = useState({
     name: '',
-    category: '',
     brand: '',
     description: '',
-    mrp: '',
-    sellingPrice: '',
     quantity: '',
     lowStockThreshold: '5',
     sku: '',
   });
+  const pricing = useProductPricing();
   const [suggestions, setSuggestions] = useState<{ id: string; name: string; brand: string }[]>([]);
   const [loading, setLoading] = useState(false);
 
+  const { data: category, isError: categoryError } = useQuery({
+    queryKey: ['category', categoryId],
+    queryFn: () => categoriesService.get(categoryId!),
+    enabled: !!categoryId,
+  });
+
+  const { data: storeCategories } = useQuery({
+    queryKey: ['categories', storeId],
+    queryFn: () => categoriesService.list(storeId!),
+    enabled: !!storeId,
+  });
+
+  useEffect(() => {
+    if (!storeId || !categoryId) {
+      router.replace('/(app)/(tabs)/products');
+      return;
+    }
+    if (storeCategories && storeCategories.length === 0) {
+      router.replace(`/(app)/stores/${storeId}/categories/add`);
+    }
+  }, [storeId, categoryId, storeCategories]);
+
+  useEffect(() => {
+    if (categoryError) {
+      Alert.alert('Invalid Category', 'The selected category could not be found.', [
+        { text: 'OK', onPress: () => router.back() },
+      ]);
+    }
+  }, [categoryError]);
+
   function update(key: string, value: string) {
-    setForm((f) => {
-      const next = { ...f, [key]: value };
-      if ((key === 'mrp' || key === 'sellingPrice') && next.mrp && next.sellingPrice) {
-        // discount auto-calculated on submit
-      }
-      return next;
-    });
+    setForm((f) => ({ ...f, [key]: value }));
     if (key === 'name' && value.length > 2) {
       productsService.searchCatalog(value).then(setSuggestions);
     }
+  }
+
+  function applySuggestion(suggestion: { name: string; brand: string }) {
+    setForm((f) => ({ ...f, name: suggestion.name, brand: suggestion.brand }));
   }
 
   async function pickImages() {
@@ -61,14 +95,38 @@ export default function AddProductScreen() {
     }
   }
 
-  async function handleSubmit() {
-    if (!locationComplete) {
+  function handlePricingNext() {
+    if (!pricing.isStepValid) {
+      Alert.alert('Incomplete Pricing', 'Please fill in unit, package size, purchase price, and selling price.');
+      return;
+    }
+    if (pricing.hasNegativeMargin) {
       Alert.alert(
-        'Store Location Required',
-        'Complete your store location and visibility radius before publishing products. Customers need this to see your products.',
+        'Negative Margin',
+        'Your selling price is lower than the purchase price. You can continue, but you will make a loss on this product.',
+        [
+          { text: 'Go Back', style: 'cancel' },
+          { text: 'Continue', onPress: () => setStep(4) },
+        ]
+      );
+      return;
+    }
+    setStep(4);
+  }
+
+  async function handleSubmit() {
+    if (!storeId || !categoryId || !category) return;
+
+    if (!locationComplete) {
+      const isIndependent = profile?.partnerType === 'INDEPENDENT_SELLER';
+      Alert.alert(
+        isIndependent ? 'Pickup Location Required' : 'Store Location Required',
+        isIndependent
+          ? 'Complete your pickup location and delivery radius before publishing products.'
+          : 'Complete your store location and visibility radius before publishing products.',
         [
           { text: 'Cancel', style: 'cancel' },
-          { text: 'Go to Stores', onPress: () => router.push('/(app)/stores') },
+          { text: isIndependent ? 'Go to Settings' : 'Go to Stores', onPress: () => router.push(isIndependent ? '/(app)/settings' : '/(app)/stores') },
         ]
       );
       return;
@@ -76,11 +134,13 @@ export default function AddProductScreen() {
 
     setLoading(true);
     try {
-      const mrp = Number(form.mrp) || 0;
-      const sellingPrice = Number(form.sellingPrice) || 0;
+      const { parsed, state: pricingState } = pricing;
+      const mrp = parsed.mrp || parsed.sellingPrice;
+      const sellingPrice = parsed.sellingPrice;
       await productsService.create({
         name: form.name,
-        category: form.category,
+        categoryId,
+        category: category.name,
         brand: form.brand,
         description: form.description,
         images,
@@ -90,14 +150,25 @@ export default function AddProductScreen() {
         quantity: Number(form.quantity) || 0,
         lowStockThreshold: Number(form.lowStockThreshold) || 5,
         sku: form.sku || `SKU-${Date.now()}`,
-        storeId: 's1',
+        storeId,
         status: locationComplete ? 'pending_review' : 'draft',
+        unitType: pricingState.unitType,
+        customUnit: pricingState.unitType === 'other' ? pricingState.customUnit : undefined,
+        packageSize: parsed.packageSize,
+        purchasePrice: parsed.purchasePrice,
+        pricePerUnit: parsed.pricePerUnit,
+        marginAmount: parsed.margin.amount,
+        marginPercent: parsed.margin.percent,
       });
       router.back();
     } finally {
       setLoading(false);
     }
   }
+
+  if (!category) return null;
+
+  const unitLabel = getUnitLabel(pricing.state.unitType, pricing.state.customUnit);
 
   return (
     <>
@@ -106,7 +177,7 @@ export default function AddProductScreen() {
         {!locationComplete && (
           <View style={styles.warning}>
             <Text style={styles.warningText}>
-              Set your store location and visibility radius first. Products won't be visible to customers until location is complete.
+              {getLocationWarningMessage(profile?.partnerType)}
             </Text>
           </View>
         )}
@@ -127,41 +198,141 @@ export default function AddProductScreen() {
         {step === 2 && (
           <>
             <Text style={styles.title}>Basic Information</Text>
+            <View style={styles.categoryRow}>
+              <Text style={styles.categoryLabel}>Category</Text>
+              <Text style={styles.categoryValue}>{category.name}</Text>
+            </View>
             <Input label="Product Name *" value={form.name} onChangeText={(v) => update('name', v)} />
             {suggestions.length > 0 && (
               <View style={styles.suggestions}>
                 <Text style={styles.suggestTitle}>Suggestions:</Text>
                 {suggestions.map((s) => (
-                  <TouchableOpacity key={s.id} style={styles.suggestItem} onPress={() => update('name', s.name)}>
+                  <TouchableOpacity key={s.id} style={styles.suggestItem} onPress={() => applySuggestion(s)}>
                     <Text style={styles.suggestName}>{s.name}</Text>
                     <Text style={styles.suggestBrand}>{s.brand}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
             )}
-            <Input label="Category *" value={form.category} onChangeText={(v) => update('category', v)} />
             <Input label="Brand" value={form.brand} onChangeText={(v) => update('brand', v)} />
             <Input label="Description" value={form.description} onChangeText={(v) => update('description', v)} multiline />
             <View style={styles.navRow}>
               <Button title="Back" variant="secondary" onPress={() => setStep(1)} style={styles.navBtn} />
-              <Button title="Next" onPress={() => setStep(3)} style={styles.navBtn} />
+              <Button title="Next" onPress={() => setStep(3)} style={styles.navBtn} disabled={!form.name.trim()} />
             </View>
           </>
         )}
 
         {step === 3 && (
           <>
-            <Text style={styles.title}>Pricing</Text>
-            <Input label="MRP *" value={form.mrp} onChangeText={(v) => update('mrp', v)} keyboardType="numeric" />
-            <Input label="Selling Price *" value={form.sellingPrice} onChangeText={(v) => update('sellingPrice', v)} keyboardType="numeric" />
-            {form.mrp && form.sellingPrice && (
-              <Text style={styles.discount}>
-                Discount: {formatDiscount(Number(form.mrp), Number(form.sellingPrice))}%
+            <Text style={styles.title}>Pricing & Units</Text>
+            <UnitTypeSelector
+              value={pricing.state.unitType}
+              customUnit={pricing.state.customUnit}
+              onChange={pricing.setUnitType}
+              onCustomUnitChange={pricing.setCustomUnit}
+            />
+            <Input
+              label={`Package Size (${unitLabel}) *`}
+              value={pricing.state.packageSize}
+              onChangeText={(v) => pricing.updateField('packageSize', v)}
+              keyboardType="numeric"
+              placeholder={`e.g. 500 for 500 ${unitLabel}`}
+            />
+            <Input
+              label="Purchase Price (Cost) *"
+              value={pricing.state.purchasePrice}
+              onChangeText={(v) => pricing.updateField('purchasePrice', v)}
+              keyboardType="numeric"
+              placeholder="What you paid for this package"
+            />
+
+            <Text style={styles.sectionLabel}>Set Price By</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.modeChips}>
+              {PRICING_MODE_OPTIONS.map((opt) => {
+                const isSelected = pricing.state.pricingMode === opt.value;
+                return (
+                  <TouchableOpacity
+                    key={opt.value}
+                    style={[styles.chip, isSelected && styles.chipSelected]}
+                    onPress={() => pricing.setPricingMode(opt.value)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>{opt.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+
+            {pricing.state.pricingMode === 'per_unit' && (
+              <Input
+                label={`Price per ${unitLabel} *`}
+                value={pricing.state.pricePerUnit}
+                onChangeText={(v) => pricing.updateField('pricePerUnit', v)}
+                keyboardType="numeric"
+                placeholder={`Rate per ${unitLabel}`}
+              />
+            )}
+            {pricing.state.pricingMode === 'total' && (
+              <Input
+                label="Selling Price (Total) *"
+                value={pricing.state.sellingPrice}
+                onChangeText={(v) => pricing.updateField('sellingPrice', v)}
+                keyboardType="numeric"
+                placeholder="Total price for this package"
+              />
+            )}
+            {pricing.state.pricingMode === 'margin' && (
+              <Input
+                label="Target Margin % *"
+                value={pricing.state.marginPercent}
+                onChangeText={(v) => pricing.updateField('marginPercent', v)}
+                keyboardType="numeric"
+                placeholder="e.g. 20 for 20% profit"
+              />
+            )}
+
+            {pricing.state.pricingMode !== 'total' && (
+              <Input
+                label="Selling Price (Total)"
+                value={pricing.state.sellingPrice}
+                onChangeText={(v) => pricing.updateField('sellingPrice', v)}
+                keyboardType="numeric"
+                editable={pricing.state.pricingMode === 'total'}
+              />
+            )}
+            {pricing.state.pricingMode !== 'per_unit' && pricing.parsed.pricePerUnit > 0 && (
+              <Text style={styles.hint}>
+                Rate: ₹{pricing.parsed.pricePerUnit.toLocaleString('en-IN')}/{unitLabel}
               </Text>
             )}
+
+            <Input
+              label="MRP"
+              value={pricing.state.mrp}
+              onChangeText={(v) => pricing.updateField('mrp', v)}
+              keyboardType="numeric"
+              placeholder="Maximum retail price"
+            />
+            {pricing.state.mrp && pricing.parsed.sellingPrice > 0 && (
+              <Text style={styles.discount}>
+                Discount: {formatDiscount(Number(pricing.state.mrp), pricing.parsed.sellingPrice)}%
+              </Text>
+            )}
+
+            <MarginSummaryCard
+              purchasePrice={pricing.parsed.purchasePrice}
+              sellingPrice={pricing.parsed.sellingPrice}
+              marginAmount={pricing.parsed.margin.amount}
+              marginPercent={pricing.parsed.margin.percent}
+              pricePerUnit={pricing.parsed.pricePerUnit}
+              unitType={pricing.state.unitType}
+              customUnit={pricing.state.customUnit}
+            />
+
             <View style={styles.navRow}>
               <Button title="Back" variant="secondary" onPress={() => setStep(2)} style={styles.navBtn} />
-              <Button title="Next" onPress={() => setStep(4)} style={styles.navBtn} />
+              <Button title="Next" onPress={handlePricingNext} style={styles.navBtn} disabled={!pricing.isStepValid} />
             </View>
           </>
         )}
@@ -169,7 +340,15 @@ export default function AddProductScreen() {
         {step === 4 && (
           <>
             <Text style={styles.title}>Inventory</Text>
-            <Input label="Available Quantity *" value={form.quantity} onChangeText={(v) => update('quantity', v)} keyboardType="numeric" />
+            <Text style={styles.inventoryHint}>
+              Package: {pricing.parsed.packageSize} {unitLabel} • Selling at ₹{pricing.parsed.sellingPrice}
+            </Text>
+            <Input
+              label="Available Quantity (packs in stock) *"
+              value={form.quantity}
+              onChangeText={(v) => update('quantity', v)}
+              keyboardType="numeric"
+            />
             <Input label="Low Stock Alert Level" value={form.lowStockThreshold} onChangeText={(v) => update('lowStockThreshold', v)} keyboardType="numeric" />
             <Input label="SKU" value={form.sku} onChangeText={(v) => update('sku', v)} />
             <View style={styles.navRow}>
@@ -192,6 +371,17 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   warningText: { ...typography.bodySmall, color: colors.warning },
+  categoryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: colors.surfaceSecondary,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
+  },
+  categoryLabel: { ...typography.bodySmall, color: colors.textSecondary },
+  categoryValue: { ...typography.bodyMedium, color: colors.text },
   uploadArea: {
     borderWidth: 2,
     borderColor: colors.border,
@@ -208,7 +398,25 @@ const styles = StyleSheet.create({
   suggestItem: { paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border },
   suggestName: { ...typography.bodyMedium, color: colors.text },
   suggestBrand: { ...typography.caption, color: colors.textMuted },
+  sectionLabel: { ...typography.label, color: colors.text, marginBottom: spacing.sm },
+  modeChips: { gap: spacing.sm, marginBottom: spacing.lg },
+  chip: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  chipSelected: {
+    backgroundColor: colors.primaryMuted,
+    borderColor: colors.primary,
+  },
+  chipText: { ...typography.bodySmall, color: colors.textSecondary, fontWeight: '500' },
+  chipTextSelected: { color: colors.primary, fontWeight: '600' },
+  hint: { ...typography.caption, color: colors.textMuted, marginBottom: spacing.md },
   discount: { ...typography.bodyMedium, color: colors.success, marginBottom: spacing.lg },
+  inventoryHint: { ...typography.bodySmall, color: colors.textSecondary, marginBottom: spacing.lg },
   navRow: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.lg },
   navBtn: { flex: 1 },
 });

@@ -15,7 +15,7 @@ const variantColors: Record<BadgeVariant, { bg: string; text: string }> = {
   danger: { bg: colors.dangerLight, text: colors.danger },
   info: { bg: colors.infoLight, text: colors.info },
   neutral: { bg: colors.surfaceSecondary, text: colors.textSecondary },
-  primary: { bg: '#EEF2FF', text: colors.primary },
+  primary: { bg: colors.primaryMuted, text: colors.primary },
 };
 
 export function StatusBadge({ label, variant = 'neutral', dot }: Props) {

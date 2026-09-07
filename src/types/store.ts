@@ -14,6 +14,7 @@ export type Store = {
   longitude?: number;
   openingTime: string;
   closingTime: string;
+  is24Hours?: boolean;
   deliveryRadius: number;
   partnerPickupRadiusKm: number;
   platformDeliveryEnabled: boolean;

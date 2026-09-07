@@ -58,6 +58,11 @@ export default function ProfileScreen() {
     router.replace('/(auth)/login');
   }
 
+  const displayName =
+    profile?.partnerType === 'STORE'
+      ? (profile?.businessDetails?.storeName ?? profile?.storeDetails?.name ?? 'Store')
+      : (profile?.businessDetails?.businessName ?? 'Business');
+
   return (
     <ScreenWrapper edges={['top']}>
       <View style={styles.profileHeader}>
@@ -66,7 +71,7 @@ export default function ProfileScreen() {
         </View>
         <View style={styles.profileInfo}>
           <Text style={styles.name}>{profile?.name ?? 'Partner'}</Text>
-          <Text style={styles.business}>{profile?.businessDetails?.businessName ?? 'Business'}</Text>
+          <Text style={styles.business}>{displayName}</Text>
           <Text style={styles.type}>{profile?.partnerType?.replace('_', ' ')}</Text>
         </View>
       </View>
@@ -124,7 +129,7 @@ const styles = StyleSheet.create({
   business: { ...typography.body, color: colors.textSecondary, marginTop: 2 },
   type: { ...typography.caption, color: colors.primary, marginTop: 4, textTransform: 'capitalize' },
   promoCard: {
-    backgroundColor: '#EEF2FF',
+    backgroundColor: colors.primaryMuted,
     borderRadius: radius.lg,
     padding: spacing.lg,
     marginBottom: spacing.xl,

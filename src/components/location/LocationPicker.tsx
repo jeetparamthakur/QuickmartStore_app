@@ -5,16 +5,21 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import MapView, { Marker, Circle, Region } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
+import { reverseGeocode } from '@/services/geocoding';
+import type { AddressResult, MapFocus } from '@/utils/address';
 import { colors, radius, spacing, typography } from '@/theme';
 
 type Props = {
   latitude: number;
   longitude: number;
   onLocationChange: (lat: number, lng: number) => void;
+  onCurrentLocationResolved?: (result: AddressResult) => void;
+  mapFocus?: MapFocus;
   label?: string;
   deliveryRadiusKm?: number;
 };
@@ -30,6 +35,8 @@ export function LocationPicker({
   latitude,
   longitude,
   onLocationChange,
+  onCurrentLocationResolved,
+  mapFocus,
   label = 'Pin your location on map',
   deliveryRadiusKm,
 }: Props) {
@@ -48,14 +55,27 @@ export function LocationPicker({
     }
   }, [latitude, longitude, deliveryRadiusKm, hasPin]);
 
+  useEffect(() => {
+    if (!mapFocus || !mapRef.current) return;
+    mapRef.current.animateToRegion({
+      latitude: mapFocus.latitude,
+      longitude: mapFocus.longitude,
+      latitudeDelta: 0.15,
+      longitudeDelta: 0.15,
+    });
+  }, [mapFocus]);
+
   async function useCurrentLocation() {
     setLoadingGps(true);
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') return;
+      if (status !== 'granted') {
+        Alert.alert('Permission required', 'Location permission is needed to use your current location.');
+        return;
+      }
 
       const pos = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
+        accuracy: Location.Accuracy.High,
       });
       const { latitude: lat, longitude: lng } = pos.coords;
       onLocationChange(lat, lng);
@@ -65,6 +85,11 @@ export function LocationPicker({
         latitudeDelta: 0.02,
         longitudeDelta: 0.02,
       });
+
+      if (onCurrentLocationResolved) {
+        const address = await reverseGeocode(lat, lng);
+        onCurrentLocationResolved(address);
+      }
     } finally {
       setLoadingGps(false);
     }
@@ -169,7 +194,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     marginTop: spacing.md,
     paddingVertical: spacing.sm,
-    backgroundColor: '#EEF2FF',
+    backgroundColor: colors.primaryMuted,
     borderRadius: radius.md,
   },
   gpsText: { ...typography.bodySmall, color: colors.primary, fontWeight: '600' },

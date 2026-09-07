@@ -24,6 +24,8 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
+      "softwareKeyboardLayoutMode": "resize",
+      "usesCleartextTraffic": true,
       "package": "com.me2.seller"
     },
     "web": {
@@ -31,6 +33,7 @@
       "bundler": "metro"
     },
     "plugins": [
+      "expo-dev-client",
       "expo-router",
       "expo-font",
       "expo-secure-store",
@@ -52,7 +55,7 @@
         "expo-notifications",
         {
           "icon": "./assets/icon.png",
-          "color": "#6366F1"
+          "color": "#F97316"
         }
       ]
     ],
