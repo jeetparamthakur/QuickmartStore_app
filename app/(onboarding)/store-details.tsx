@@ -91,7 +91,7 @@ export default function StoreDetailsScreen() {
         onboardingStep: 'kyc',
       });
       setProfile(profile);
-      router.push('/(onboarding)/kyc');
+      router.replace('/(onboarding)/kyc');
     } catch {
       Alert.alert('Error', 'Could not save store details. Please try again.');
     } finally {

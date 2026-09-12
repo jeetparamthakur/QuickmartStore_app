@@ -75,7 +75,7 @@ export default function BusinessDetailsScreen() {
           onboardingStep: 'store_details',
         });
         setProfile(profile);
-        router.push('/(onboarding)/store-details');
+        router.replace('/(onboarding)/store-details');
       } catch {
         Alert.alert('Error', 'Could not save business details. Please try again.');
       } finally {
@@ -117,7 +117,7 @@ export default function BusinessDetailsScreen() {
           onboardingStep: 'food_setup',
         });
         setProfile(profile);
-        router.push('/(onboarding)/food-setup');
+        router.replace('/(onboarding)/food-setup');
       } catch {
         Alert.alert('Error', 'Could not save business details. Please try again.');
       } finally {
@@ -142,7 +142,7 @@ export default function BusinessDetailsScreen() {
           onboardingStep: 'seller_setup',
         });
         setProfile(profile);
-        router.push('/(onboarding)/seller-setup');
+        router.replace('/(onboarding)/seller-setup');
       } catch {
         Alert.alert('Error', 'Could not save business details. Please try again.');
       } finally {

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Alert } from 'react-native';
 import { router, Stack } from 'expo-router';
 import { ScreenWrapper } from '@/components/layout/ScreenWrapper';
@@ -13,6 +13,7 @@ import { colors, spacing, typography } from '@/theme';
 export default function BankSetupScreen() {
   const setOnboardingStep = usePartnerStore((s) => s.setOnboardingStep);
   const setProfile = usePartnerStore((s) => s.setProfile);
+  const bankDetails = usePartnerStore((s) => s.profile?.bankDetails);
   const [form, setForm] = useState({
     accountHolderName: '',
     bankName: '',
@@ -20,6 +21,16 @@ export default function BankSetupScreen() {
     ifscCode: '',
   });
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!bankDetails) return;
+    setForm({
+      accountHolderName: bankDetails.accountHolderName ?? '',
+      bankName: bankDetails.bankName ?? '',
+      accountNumber: bankDetails.accountNumber ?? '',
+      ifscCode: bankDetails.ifscCode ?? '',
+    });
+  }, [bankDetails]);
 
   function update(key: string, value: string) {
     setForm((f) => ({ ...f, [key]: value }));

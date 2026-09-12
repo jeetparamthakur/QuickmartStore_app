@@ -48,7 +48,7 @@ export default function PartnerTypeScreen() {
         onboardingStep: 'business_details',
       });
       setProfile(profile);
-      router.push('/(onboarding)/business-details');
+      router.replace('/(onboarding)/business-details');
     } catch {
       Alert.alert('Error', 'Could not save your selection. Please try again.');
     } finally {

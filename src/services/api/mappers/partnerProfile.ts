@@ -14,8 +14,11 @@ type SellerMeResponse = {
   id: string;
   name?: string;
   partnerType?: PartnerType;
+  partner_type?: PartnerType;
   onboardingStep?: OnboardingStep;
+  onboarding_step?: OnboardingStep;
   approvalStatus?: ApprovalStatus;
+  approval_status?: ApprovalStatus;
   isStoreOpen?: boolean;
   businessDetails?: BusinessDetails;
   storeDetails?: StoreDetails;
@@ -65,9 +68,9 @@ export function mapPartnerProfile(data: unknown): PartnerProfile {
   return {
     id: String(d.id ?? 'unknown'),
     name: String(d.name ?? businessDetails?.fullName ?? ''),
-    partnerType: d.partnerType ?? 'STORE',
-    approvalStatus: d.approvalStatus ?? 'pending',
-    onboardingStep: d.onboardingStep ?? 'partner_type',
+    partnerType: d.partnerType ?? d.partner_type ?? 'STORE',
+    approvalStatus: d.approvalStatus ?? d.approval_status ?? 'pending',
+    onboardingStep: d.onboardingStep ?? d.onboarding_step ?? 'partner_type',
     isStoreOpen: d.isStoreOpen ?? true,
     businessDetails,
     storeDetails: d.storeDetails,

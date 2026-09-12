@@ -78,7 +78,7 @@ export default function SellerSetupScreen() {
         onboardingStep: 'kyc',
       });
       setProfile(profile);
-      router.push('/(onboarding)/kyc');
+      router.replace('/(onboarding)/kyc');
     } catch {
       Alert.alert('Error', 'Could not save seller setup. Please try again.');
     } finally {

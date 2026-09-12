@@ -27,8 +27,19 @@ export default function Index() {
         await syncOnboardingComplete(currentProfile);
         setRoute(getPostAuthRoute(currentProfile));
       } catch {
-        const step = usePartnerStore.getState().profile?.onboardingStep ?? 'partner_type';
-        setRoute(getOnboardingRoute(step));
+        try {
+          const retryProfile = await partnerService.getProfile();
+          setProfile(retryProfile);
+          await syncOnboardingComplete(retryProfile);
+          setRoute(getPostAuthRoute(retryProfile));
+        } catch {
+          const cachedProfile = usePartnerStore.getState().profile;
+          setRoute(
+            cachedProfile
+              ? getPostAuthRoute(cachedProfile)
+              : getOnboardingRoute('partner_type'),
+          );
+        }
       } finally {
         setChecking(false);
       }

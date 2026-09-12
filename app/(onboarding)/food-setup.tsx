@@ -101,7 +101,7 @@ export default function FoodSetupScreen() {
         onboardingStep: 'kyc',
       });
       setProfile(profile);
-      router.push('/(onboarding)/kyc');
+      router.replace('/(onboarding)/kyc');
     } catch {
       Alert.alert('Error', 'Could not save food setup. Please try again.');
     } finally {

@@ -6,7 +6,6 @@ import {
   TextInput,
   TouchableOpacity,
   ActivityIndicator,
-  FlatList,
 } from 'react-native';
 import { photonSearchAddresses } from '@/services/geocoding';
 import type { AddressResult } from '@/utils/address';
@@ -81,13 +80,13 @@ export function AddressSearchInput({
         </View>
       )}
       {!loading && results.length > 0 && (
-        <FlatList
-          data={results}
-          keyExtractor={(item, index) => `${item.latitude}-${item.longitude}-${index}`}
-          keyboardShouldPersistTaps="handled"
-          style={styles.list}
-          renderItem={({ item }) => (
-            <TouchableOpacity style={styles.row} onPress={() => handleSelect(item)}>
+        <View style={styles.list}>
+          {results.map((item, index) => (
+            <TouchableOpacity
+              key={`${item.latitude}-${item.longitude}-${index}`}
+              style={styles.row}
+              onPress={() => handleSelect(item)}
+            >
               <Text style={styles.rowTitle} numberOfLines={2}>
                 {item.addressLine || [item.area, item.city].filter(Boolean).join(', ')}
               </Text>
@@ -97,8 +96,8 @@ export function AddressSearchInput({
                 </Text>
               )}
             </TouchableOpacity>
-          )}
-        />
+          ))}
+        </View>
       )}
       <Text style={styles.attribution}>Address search powered by OpenStreetMap</Text>
     </View>

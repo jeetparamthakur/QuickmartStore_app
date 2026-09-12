@@ -91,10 +91,6 @@ export default function KycScreen() {
   }
 
   function handleBack() {
-    if (router.canGoBack()) {
-      router.back();
-      return;
-    }
     router.replace(getPreviousStepRoute(partnerType));
   }
 
@@ -110,7 +106,7 @@ export default function KycScreen() {
       await kycService.submit();
       const updated = await onboardingService.update({ onboardingStep: 'bank_setup' });
       setProfile(updated);
-      router.push('/(onboarding)/bank-setup');
+      router.replace('/(onboarding)/bank-setup');
     } catch {
       Alert.alert('Submission failed', 'Could not submit KYC documents. Please try again.');
     } finally {

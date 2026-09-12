@@ -65,7 +65,7 @@ export default function PendingApprovalScreen() {
           </Text>
 
           {status === 'rejected' && (
-            <Button title="Re-upload Documents" onPress={() => router.push('/(onboarding)/kyc')} fullWidth />
+            <Button title="Re-upload Documents" onPress={() => router.replace('/(onboarding)/kyc')} fullWidth />
           )}
         </View>
       </ScreenWrapper>
