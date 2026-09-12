@@ -1,17 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   FlatList,
   TouchableOpacity,
-  Alert,
-  Modal,
-  Pressable,
   ScrollView,
 } from 'react-native';
 import { router } from 'expo-router';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { ScreenWrapper } from '@/components/layout/ScreenWrapper';
 import { ProductCard } from '@/components/cards/ProductCard';
@@ -19,50 +16,65 @@ import { SearchBar } from '@/components/ui/SearchBar';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
-import { productsService, categoriesService, storesService } from '@/services/api';
-import { useStoreSwitcherStore } from '@/stores/storeSwitcherStore';
-import { PRODUCT_TABS, type ProductStatus } from '@/types/product';
+import { BottomSheetPanel } from '@/components/ui/BottomSheetPanel';
+import { productsService, categoriesService } from '@/services/api';
+import { appAlert } from '@/utils/appDialog';
+import { usePartnerType } from '@/hooks/usePermissions';
+import { useActiveStoreId } from '@/hooks/useActiveStoreId';
+import { PRODUCT_TABS, type ProductTab, matchesProductTab } from '@/types/product';
 import type { ProductCategory } from '@/types/category';
-import { colors, radius, spacing, typography } from '@/theme';
+import { colors, spacing, typography } from '@/theme';
 
 export default function ProductsScreen() {
-  const [activeTab, setActiveTab] = useState<ProductStatus>('active');
+  const queryClient = useQueryClient();
+  const [activeTab, setActiveTab] = useState<ProductTab>('active');
   const [search, setSearch] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [pickerVisible, setPickerVisible] = useState(false);
 
-  const { stores, activeStoreId, setStores, getActiveStore } = useStoreSwitcherStore();
-  const activeStore = getActiveStore();
-
-  const { data: storesData } = useQuery({
-    queryKey: ['stores'],
-    queryFn: storesService.list,
-  });
-
-  useEffect(() => {
-    if (storesData) setStores(storesData);
-  }, [storesData, setStores]);
-
-  const storeId = activeStoreId ?? stores[0]?.id ?? storesData?.[0]?.id;
+  const partnerType = usePartnerType();
+  const isStorePartner = partnerType === 'STORE';
+  const isIndependentSeller = partnerType === 'INDEPENDENT_SELLER';
+  const { storeId, isReady, activeStore } = useActiveStoreId();
 
   const { data: categories } = useQuery({
     queryKey: ['categories', storeId],
     queryFn: () => categoriesService.list(storeId!),
-    enabled: !!storeId,
+    enabled: isStorePartner && !!storeId,
   });
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['products', activeTab, storeId, selectedCategoryId],
+    queryKey: ['products', activeTab, storeId, selectedCategoryId, partnerType],
     queryFn: () =>
       productsService.list({
-        status: activeTab,
-        storeId: storeId!,
+        tab: activeTab,
+        storeId: storeId ?? undefined,
         categoryId: selectedCategoryId ?? undefined,
       }),
-    enabled: !!storeId,
+    enabled: isStorePartner ? !!storeId && isReady : true,
   });
 
   const filtered = data?.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()));
+
+  const deleteMutation = useMutation({
+    mutationFn: (productId: string) => productsService.delete(productId, storeId ?? undefined),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ['inventory'] });
+    },
+    onError: () => appAlert('Error', 'Could not delete product. Please try again.'),
+  });
+
+  function confirmDeleteProduct(name: string, productId: string) {
+    appAlert(
+      'Delete Product',
+      `Remove "${name}" from your catalog? This action cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: () => deleteMutation.mutate(productId) },
+      ],
+    );
+  }
 
   function navigateToAddProduct(categoryId: string) {
     if (!storeId) return;
@@ -73,15 +85,21 @@ export default function ProductsScreen() {
   }
 
   function handleAddPress() {
+    if (isIndependentSeller) {
+      router.push('/(app)/products/add');
+      return;
+    }
+
     if (!storeId) {
-      Alert.alert('No Store', 'Please set up a store before adding products.', [
+      appAlert('No Store', 'Please set up a store before adding products.', [
+        { text: 'Cancel', style: 'cancel' },
         { text: 'Go to Stores', onPress: () => router.push('/(app)/stores') },
       ]);
       return;
     }
 
     if (!categories?.length) {
-      Alert.alert(
+      appAlert(
         'Category Required',
         'Add at least one product category before adding products.',
         [
@@ -90,7 +108,7 @@ export default function ProductsScreen() {
             text: 'Add Category',
             onPress: () => router.push(`/(app)/stores/${storeId}/categories/add`),
           },
-        ]
+        ],
       );
       return;
     }
@@ -123,7 +141,7 @@ export default function ProductsScreen() {
 
       <SearchBar value={search} onChangeText={setSearch} placeholder="Search Products" />
 
-      {categories && categories.length > 0 && (
+      {isStorePartner && categories && categories.length > 0 && (
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -154,7 +172,7 @@ export default function ProductsScreen() {
           <TouchableOpacity
             key={tab.key}
             style={[styles.tab, activeTab === tab.key && styles.tabActive]}
-            onPress={() => setActiveTab(tab.key as ProductStatus)}
+            onPress={() => setActiveTab(tab.key)}
           >
             <Text style={[styles.tabText, activeTab === tab.key && styles.tabTextActive]}>
               {tab.label}
@@ -172,18 +190,24 @@ export default function ProductsScreen() {
           icon="cube-outline"
           title="No Products"
           message={
-            categories?.length
-              ? 'No products in this category yet.'
-              : 'Add a category first, then start listing products.'
+            isIndependentSeller
+              ? 'Start listing your products directly.'
+              : categories?.length
+                ? 'No products in this category yet.'
+                : 'Add a category first, then start listing products.'
           }
-          actionLabel={categories?.length ? 'Add Product' : 'Add Category'}
+          actionLabel={isIndependentSeller || categories?.length ? 'Add Product' : 'Add Category'}
           onAction={handleAddPress}
         />
       ) : (
         <FlatList
           data={filtered}
           renderItem={({ item }) => (
-            <ProductCard product={item} onPress={() => router.push(`/(app)/products/${item.id}`)} />
+            <ProductCard
+              product={item}
+              onPress={() => router.push(`/(app)/products/${item.id}`)}
+              onDelete={() => confirmDeleteProduct(item.name, item.id)}
+            />
           )}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
@@ -191,19 +215,24 @@ export default function ProductsScreen() {
         />
       )}
 
-      <Modal visible={pickerVisible} transparent animationType="fade" onRequestClose={() => setPickerVisible(false)}>
-        <Pressable style={styles.modalOverlay} onPress={() => setPickerVisible(false)}>
-          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
-            <Text style={styles.modalTitle}>Select Category</Text>
-            {categories?.map((cat) => (
-              <TouchableOpacity key={cat.id} style={styles.modalItem} onPress={() => handleCategoryPick(cat)}>
-                <Text style={styles.modalItemText}>{cat.name}</Text>
-                <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-              </TouchableOpacity>
-            ))}
-          </Pressable>
-        </Pressable>
-      </Modal>
+      {isStorePartner && (
+        <BottomSheetPanel
+          visible={pickerVisible}
+          title="Select Category"
+          subtitle="Choose where this product should be listed"
+          options={(categories ?? []).map((cat) => ({
+            id: cat.id,
+            label: cat.name,
+            subtitle: `${cat.productCount ?? 0} product${(cat.productCount ?? 0) === 1 ? '' : 's'}`,
+            icon: 'albums-outline',
+          }))}
+          onClose={() => setPickerVisible(false)}
+          onSelect={(option) => {
+            const category = categories?.find((cat) => cat.id === option.id);
+            if (category) handleCategoryPick(category);
+          }}
+        />
+      )}
     </ScreenWrapper>
   );
 }
@@ -246,26 +275,4 @@ const styles = StyleSheet.create({
   tabText: { ...typography.caption, color: colors.textSecondary, fontWeight: '600' },
   tabTextActive: { color: colors.white },
   list: { paddingBottom: spacing.xxxl },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: radius.xl,
-    borderTopRightRadius: radius.xl,
-    padding: spacing.lg,
-    paddingBottom: spacing.xxxl,
-  },
-  modalTitle: { ...typography.h3, color: colors.text, marginBottom: spacing.md },
-  modalItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  modalItemText: { ...typography.body, color: colors.text },
 });

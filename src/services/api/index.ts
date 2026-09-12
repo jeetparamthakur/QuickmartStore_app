@@ -1,15 +1,33 @@
 import { USE_MOCK_API, apiClient, normalizePhone, uploadMultipart } from './client';
+import { mapBackendBanner } from './mappers/banner';
 import { mockApi } from './mock';
-import { mapPartnerProfile } from './mappers/partnerProfile';
-import type { OrderStatus } from '@/types/order';
-import type { ProductStatus, Product, ProductListFilters } from '@/types/product';
+import { partnerService, resolvePartnerProfile } from './partnerService';
+import type { Order, OrderStatus } from '@/types/order';
+import type { ProductTab, Product, ProductListFilters, CatalogSuggestion } from '@/types/product';
+import { matchesProductTab } from '@/types/product';
 import type { ProductCategory } from '@/types/category';
 import type { UserLocation } from '@/types/location';
 import type { PartnerDeliveryPreferences } from '@/types/delivery';
-import type { BankAccount, KycInfo } from '@/types/index';
+import type { BankAccount, EarningsSummary, InventoryItem, KycInfo } from '@/types/index';
+import type { StaffMember, Store } from '@/types/store';
 import type { OnboardingStep, PartnerType } from '@/types/partner';
 
 export type { ProductListFilters };
+
+function withStoreId(path: string, storeId?: string): string {
+  if (!storeId) return path;
+  const separator = path.includes('?') ? '&' : '?';
+  return `${path}${separator}storeId=${encodeURIComponent(storeId)}`;
+}
+
+function buildQuery(params: Record<string, string | undefined>): string {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== '') search.set(key, value);
+  }
+  const query = search.toString();
+  return query ? `?${query}` : '';
+}
 
 export const authService = {
   sendOtp: (phone: string) =>
@@ -34,13 +52,7 @@ export const configService = {
   getFeatureFlags: () => mockApi.config.getFeatureFlags(),
 };
 
-export const partnerService = {
-  getProfile: async () => {
-    if (USE_MOCK_API) return mockApi.partner.getProfile();
-    const data = await apiClient('/seller/me');
-    return mapPartnerProfile(data);
-  },
-};
+export { partnerService };
 
 export type OnboardingUpdatePayload = {
   onboardingStep?: OnboardingStep;
@@ -52,40 +64,70 @@ export type OnboardingUpdatePayload = {
 };
 
 export const onboardingService = {
-  update: (data: OnboardingUpdatePayload) =>
-    USE_MOCK_API
-      ? mockApi.partner.getProfile()
-      : apiClient('/seller/onboarding', { method: 'PATCH', body: data }),
-  complete: (bankDetails?: Record<string, unknown>) =>
-    USE_MOCK_API
-      ? mockApi.partner.getProfile()
-      : apiClient('/seller/onboarding/complete', { method: 'POST', body: { bankDetails } }),
+  update: async (data: OnboardingUpdatePayload) => {
+    if (USE_MOCK_API) {
+      return mockApi.partner.updateOnboarding(data);
+    }
+    const response = await apiClient('/seller/onboarding', { method: 'PATCH', body: data });
+    return resolvePartnerProfile(response);
+  },
+  complete: async (bankDetails?: Record<string, unknown>) => {
+    if (USE_MOCK_API) {
+      return mockApi.partner.completeOnboarding(bankDetails);
+    }
+    const response = await apiClient('/seller/onboarding/complete', {
+      method: 'POST',
+      body: { bankDetails },
+    });
+    return resolvePartnerProfile(response);
+  },
 };
 
 export const ordersService = {
-  list: (status?: OrderStatus) =>
-    USE_MOCK_API ? mockApi.orders.list(status) : apiClient('/seller/orders'),
+  list: (status?: OrderStatus, storeId?: string) =>
+    USE_MOCK_API
+      ? mockApi.orders.list(status)
+      : apiClient<Order[]>(withStoreId('/seller/orders', storeId)),
   get: (id: string) =>
-    USE_MOCK_API ? mockApi.orders.get(id) : apiClient(`/seller/orders/${id}`),
+    USE_MOCK_API ? mockApi.orders.get(id) : apiClient<Order>(`/seller/orders/${id}`),
   updateStatus: (id: string, status: OrderStatus) =>
     USE_MOCK_API
       ? mockApi.orders.updateStatus(id, status)
-      : apiClient(`/seller/orders/${id}/${status}`, { method: 'POST' }),
+      : apiClient<Order>(`/seller/orders/${id}/${status}`, { method: 'POST' }),
   requestDelivery: (orderId: string) => mockApi.orders.requestDelivery(orderId),
   cancelDeliveryRequest: (orderId: string) => mockApi.orders.cancelDeliveryRequest(orderId),
 };
 
 export const productsService = {
-  list: (filters?: ProductListFilters) =>
-    USE_MOCK_API ? mockApi.products.list(filters) : apiClient('/seller/products'),
-  get: (id: string) =>
-    USE_MOCK_API ? mockApi.products.get(id) : apiClient(`/products/${id}`),
+  list: async (filters?: ProductListFilters) => {
+    if (USE_MOCK_API) return mockApi.products.list(filters);
+    const query = buildQuery({
+      storeId: filters?.storeId,
+    });
+    const products = await apiClient<Product[]>(`/seller/products${query}`);
+    if (!Array.isArray(products)) return [];
+    return products.filter((p) => {
+      if (filters?.tab && !matchesProductTab(p, filters.tab)) return false;
+      if (filters?.categoryId && p.categoryId !== filters.categoryId) return false;
+      return true;
+    });
+  },
+  get: (id: string, storeId?: string) =>
+    USE_MOCK_API
+      ? mockApi.products.get(id)
+      : apiClient<Product>(withStoreId(`/seller/products/${id}`, storeId)),
   create: (data: Partial<Product>) =>
-    USE_MOCK_API ? mockApi.products.create(data) : apiClient('/seller/products', { method: 'POST', body: data }),
+    USE_MOCK_API ? mockApi.products.create(data) : apiClient<Product>('/seller/products', { method: 'POST', body: data }),
   update: (id: string, data: Partial<Product>) =>
-    USE_MOCK_API ? mockApi.products.update(id, data) : apiClient(`/seller/products/${id}`, { method: 'PATCH', body: data }),
+    USE_MOCK_API ? mockApi.products.update(id, data) : apiClient<Product>(`/seller/products/${id}`, { method: 'PATCH', body: data }),
+  delete: (id: string, storeId?: string) =>
+    USE_MOCK_API
+      ? mockApi.products.delete(id)
+      : apiClient(withStoreId(`/seller/products/${id}`, storeId), { method: 'DELETE' }),
   searchCatalog: (query: string) =>
-    USE_MOCK_API ? mockApi.products.searchCatalog(query) : apiClient(`/products?q=${encodeURIComponent(query)}`),
+    USE_MOCK_API
+      ? mockApi.products.searchCatalog(query)
+      : apiClient<CatalogSuggestion[]>(`/products?q=${encodeURIComponent(query)}`),
   getNearby: (location: UserLocation) =>
     USE_MOCK_API ? mockApi.products.getNearby(location) : apiClient('/products?limit=20'),
 };
@@ -112,10 +154,17 @@ export const categoriesService = {
 };
 
 export const storesService = {
-  list: () => (USE_MOCK_API ? mockApi.stores.list() : apiClient('/seller/stores')),
-  get: (id: string) => (USE_MOCK_API ? mockApi.stores.get(id) : apiClient(`/seller/stores/${id}`)),
+  list: () => (USE_MOCK_API ? mockApi.stores.list() : apiClient<Store[]>('/seller/stores')),
+  get: (id: string) => (USE_MOCK_API ? mockApi.stores.get(id) : apiClient<Store>(`/seller/stores/${id}`)),
+  create: (data: Record<string, unknown>) =>
+    USE_MOCK_API
+      ? mockApi.stores.create(data as never)
+      : apiClient<Store>('/seller/stores', { method: 'POST', body: data }),
   getNearby: (location: UserLocation) => mockApi.stores.getNearby(location),
-  toggleStatus: (id: string, isOpen: boolean) => mockApi.stores.toggleStatus(id, isOpen),
+  toggleStatus: (id: string, isOpen: boolean) =>
+    USE_MOCK_API
+      ? mockApi.stores.toggleStatus(id, isOpen)
+      : apiClient(`/seller/stores/${id}`, { method: 'PATCH', body: { isOpen } }),
   updateLocation: (id: string, data: Record<string, unknown>) =>
     USE_MOCK_API ? mockApi.stores.updateLocation(id, data as never) : apiClient(`/seller/stores/${id}`, { method: 'PATCH', body: data }),
   updatePartnerPickupSettings: (id: string, data: Record<string, unknown>) =>
@@ -132,7 +181,10 @@ export const deliveryService = {
 };
 
 export const earningsService = {
-  getSummary: () => (USE_MOCK_API ? mockApi.earnings.getSummary() : apiClient('/seller/earnings')),
+  getSummary: (storeId?: string) =>
+    USE_MOCK_API
+      ? mockApi.earnings.getSummary()
+      : apiClient<EarningsSummary>(withStoreId('/seller/earnings', storeId)),
   getChart: (period: string) => mockApi.earnings.getChart(period),
   getPayouts: () => mockApi.earnings.getPayouts(),
 };
@@ -155,12 +207,54 @@ export const kycService = {
 };
 
 export const bankService = {
-  get: () => mockApi.bank.get(),
-  update: (data: Partial<BankAccount>) => mockApi.bank.update(data),
+  get: async () => {
+    if (USE_MOCK_API) return mockApi.bank.get();
+    const profile = await partnerService.getProfile();
+    return (
+      profile.bankDetails ?? {
+        accountHolderName: '',
+        bankName: '',
+        accountNumber: '',
+        ifscCode: '',
+        verificationStatus: 'pending' as const,
+      }
+    );
+  },
+  update: (data: Partial<BankAccount>) =>
+    USE_MOCK_API ? mockApi.bank.update(data) : apiClient('/seller/onboarding', { method: 'PATCH', body: { bankDetails: data } }),
+};
+
+export const couponsService = {
+  list: (storeId?: string) =>
+    USE_MOCK_API
+      ? Promise.resolve([] as import('@/types/coupon').SellerCoupon[])
+      : apiClient<import('@/types/coupon').SellerCoupon[]>(
+          storeId ? `/seller/coupons/store/${storeId}` : '/seller/coupons',
+        ),
+  create: (data: import('@/types/coupon').CreateSellerCouponInput) =>
+    USE_MOCK_API
+      ? Promise.reject(new Error('Coupons require backend'))
+      : apiClient('/seller/coupons', { method: 'POST', body: data }),
+  update: (id: string, data: Partial<import('@/types/coupon').CreateSellerCouponInput>) =>
+    USE_MOCK_API
+      ? Promise.reject(new Error('Coupons require backend'))
+      : apiClient(`/seller/coupons/${id}`, { method: 'PATCH', body: data }),
+  delete: (id: string) =>
+    USE_MOCK_API
+      ? Promise.reject(new Error('Coupons require backend'))
+      : apiClient(`/seller/coupons/${id}`, { method: 'DELETE' }),
 };
 
 export const staffService = {
-  list: () => mockApi.staff.list(),
+  list: () => (USE_MOCK_API ? mockApi.staff.list() : apiClient<StaffMember[]>('/seller/staff')),
+  create: (data: { name: string; email: string; phone: string; role: string; storeId?: string }) =>
+    USE_MOCK_API
+      ? mockApi.staff.create(data as never)
+      : apiClient('/seller/staff', { method: 'POST', body: data }),
+  delete: (id: string) =>
+    USE_MOCK_API
+      ? mockApi.staff.delete(id)
+      : apiClient(`/seller/staff/${id}`, { method: 'DELETE' }),
 };
 
 export const notificationsService = {
@@ -169,16 +263,31 @@ export const notificationsService = {
 };
 
 export const bannersService = {
-  list: () => mockApi.banners.list(),
+  list: async () => {
+    if (USE_MOCK_API) return mockApi.banners.list();
+    const data = await apiClient<Array<Parameters<typeof mapBackendBanner>[0]>>('/banners');
+    return data.map(mapBackendBanner);
+  },
 };
 
 export const inventoryService = {
-  list: () => (USE_MOCK_API ? mockApi.inventory.list() : apiClient('/seller/inventory')),
-  update: (id: string, quantity: number) =>
-    USE_MOCK_API ? mockApi.inventory.update(id, quantity) : apiClient(`/seller/inventory/${id}`, { method: 'PATCH', body: { quantity } }),
+  list: (storeId?: string) =>
+    USE_MOCK_API
+      ? mockApi.inventory.list()
+      : apiClient<InventoryItem[]>(withStoreId('/seller/inventory', storeId)),
+  update: (productId: string, quantity: number, storeId?: string) =>
+    USE_MOCK_API
+      ? mockApi.inventory.updateStock(productId, quantity)
+      : apiClient(withStoreId(`/seller/inventory/${productId}`, storeId), {
+          method: 'PATCH',
+          body: { quantity },
+        }),
+  updateStock: (productId: string, quantity: number, storeId?: string) =>
+    inventoryService.update(productId, quantity, storeId),
 };
 
 export const supportService = {
+  getFaqs: () => mockApi.support.getFaqs(),
   listTickets: () => mockApi.support.listTickets(),
   createTicket: (subject: string, message: string) => mockApi.support.createTicket(subject, message),
 };

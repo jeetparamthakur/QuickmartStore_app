@@ -1,4 +1,5 @@
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Linking } from 'react-native';
+import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, radius, spacing, typography, shadows } from '@/theme';
 import type { Banner } from '@/types/index';
@@ -8,7 +9,7 @@ type Props = {
   onPress?: () => void;
 };
 
-const typeIcons: Record<Banner['type'], keyof typeof Ionicons.glyphMap> = {
+const typeIcons: Record<NonNullable<Banner['type']>, keyof typeof Ionicons.glyphMap> = {
   campaign: 'megaphone',
   policy: 'document-text',
   commission: 'cash',
@@ -17,15 +18,32 @@ const typeIcons: Record<Banner['type'], keyof typeof Ionicons.glyphMap> = {
 };
 
 export function BannerCard({ banner, onPress }: Props) {
+  const handlePress = () => {
+    if (onPress) {
+      onPress();
+      return;
+    }
+    if (banner.linkUrl) {
+      void Linking.openURL(banner.linkUrl);
+    }
+  };
+
+  const iconName = typeIcons[banner.type ?? 'campaign'];
+
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.9}>
-      <View style={styles.accentStripe} />
-      <View style={styles.iconWrap}>
-        <Ionicons name={typeIcons[banner.type]} size={20} color={colors.primary} />
-      </View>
+    <TouchableOpacity style={styles.card} onPress={handlePress} activeOpacity={0.9}>
+      {banner.imageUrl ? (
+        <Image source={{ uri: banner.imageUrl }} style={styles.thumb} contentFit="cover" />
+      ) : (
+        <View style={styles.iconWrap}>
+          <Ionicons name={iconName} size={20} color={colors.primary} />
+        </View>
+      )}
       <View style={styles.content}>
         <Text style={styles.title}>{banner.title}</Text>
-        <Text style={styles.description} numberOfLines={2}>{banner.description}</Text>
+        {banner.description ? (
+          <Text style={styles.description} numberOfLines={2}>{banner.description}</Text>
+        ) : null}
       </View>
       <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
     </TouchableOpacity>
@@ -38,18 +56,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: colors.primaryMuted,
     borderRadius: radius.lg,
-    padding: spacing.lg,
+    padding: spacing.md,
     marginBottom: spacing.md,
     overflow: 'hidden',
     ...shadows.sm,
   },
-  accentStripe: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: 4,
-    backgroundColor: colors.primary,
+  thumb: {
+    width: 56,
+    height: 56,
+    borderRadius: radius.md,
+    marginRight: spacing.md,
   },
   iconWrap: {
     width: 40,
@@ -58,9 +74,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: spacing.sm,
+    marginRight: spacing.md,
   },
-  content: { flex: 1, marginHorizontal: spacing.md },
+  content: { flex: 1 },
   title: { ...typography.bodyMedium, color: colors.text },
   description: { ...typography.caption, color: colors.textSecondary, marginTop: 2 },
 });

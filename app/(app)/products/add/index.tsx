@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { ScreenWrapper } from '@/components/layout/ScreenWrapper';
@@ -13,6 +13,7 @@ import { MarginSummaryCard } from '@/components/products/MarginSummaryCard';
 import { productsService, categoriesService } from '@/services/api';
 import { usePartnerStore } from '@/stores/partnerStore';
 import { useProductPricing } from '@/hooks/useProductPricing';
+import { appAlert } from '@/utils/appDialog';
 import { formatDiscount } from '@/utils/format';
 import { getUnitLabel } from '@/utils/pricing';
 import { isPartnerLocationComplete, getLocationWarningMessage } from '@/utils/partnerLocation';
@@ -26,8 +27,10 @@ const PRICING_MODE_OPTIONS: { value: PricingMode; label: string }[] = [
 ];
 
 export default function AddProductScreen() {
-  const { storeId, categoryId } = useLocalSearchParams<{ storeId: string; categoryId: string }>();
+  const { storeId, categoryId } = useLocalSearchParams<{ storeId?: string; categoryId?: string }>();
   const profile = usePartnerStore((s) => s.profile);
+  const queryClient = useQueryClient();
+  const isIndependentSeller = profile?.partnerType === 'INDEPENDENT_SELLER';
   const locationComplete = isPartnerLocationComplete(profile);
   const [step, setStep] = useState(1);
   const [images, setImages] = useState<string[]>([]);
@@ -46,16 +49,17 @@ export default function AddProductScreen() {
   const { data: category, isError: categoryError } = useQuery({
     queryKey: ['category', categoryId],
     queryFn: () => categoriesService.get(categoryId!),
-    enabled: !!categoryId,
+    enabled: !isIndependentSeller && !!categoryId,
   });
 
   const { data: storeCategories } = useQuery({
     queryKey: ['categories', storeId],
     queryFn: () => categoriesService.list(storeId!),
-    enabled: !!storeId,
+    enabled: !isIndependentSeller && !!storeId,
   });
 
   useEffect(() => {
+    if (isIndependentSeller) return;
     if (!storeId || !categoryId) {
       router.replace('/(app)/(tabs)/products');
       return;
@@ -63,15 +67,14 @@ export default function AddProductScreen() {
     if (storeCategories && storeCategories.length === 0) {
       router.replace(`/(app)/stores/${storeId}/categories/add`);
     }
-  }, [storeId, categoryId, storeCategories]);
+  }, [isIndependentSeller, storeId, categoryId, storeCategories]);
 
   useEffect(() => {
-    if (categoryError) {
-      Alert.alert('Invalid Category', 'The selected category could not be found.', [
-        { text: 'OK', onPress: () => router.back() },
-      ]);
-    }
-  }, [categoryError]);
+    if (isIndependentSeller || !categoryError) return;
+    appAlert('Invalid Category', 'The selected category could not be found.', [
+      { text: 'OK', onPress: () => router.back() },
+    ]);
+  }, [categoryError, isIndependentSeller]);
 
   function update(key: string, value: string) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -97,17 +100,17 @@ export default function AddProductScreen() {
 
   function handlePricingNext() {
     if (!pricing.isStepValid) {
-      Alert.alert('Incomplete Pricing', 'Please fill in unit, package size, purchase price, and selling price.');
+      appAlert('Incomplete Pricing', 'Please fill in unit, package size, purchase price, and selling price.');
       return;
     }
     if (pricing.hasNegativeMargin) {
-      Alert.alert(
+      appAlert(
         'Negative Margin',
         'Your selling price is lower than the purchase price. You can continue, but you will make a loss on this product.',
         [
           { text: 'Go Back', style: 'cancel' },
           { text: 'Continue', onPress: () => setStep(4) },
-        ]
+        ],
       );
       return;
     }
@@ -115,19 +118,22 @@ export default function AddProductScreen() {
   }
 
   async function handleSubmit() {
-    if (!storeId || !categoryId || !category) return;
+    if (!isIndependentSeller && (!storeId || !categoryId || !category)) return;
 
     if (!locationComplete) {
       const isIndependent = profile?.partnerType === 'INDEPENDENT_SELLER';
-      Alert.alert(
+      appAlert(
         isIndependent ? 'Pickup Location Required' : 'Store Location Required',
         isIndependent
           ? 'Complete your pickup location and delivery radius before publishing products.'
           : 'Complete your store location and visibility radius before publishing products.',
         [
           { text: 'Cancel', style: 'cancel' },
-          { text: isIndependent ? 'Go to Settings' : 'Go to Stores', onPress: () => router.push(isIndependent ? '/(app)/settings' : '/(app)/stores') },
-        ]
+          {
+            text: isIndependent ? 'Go to Settings' : 'Go to Stores',
+            onPress: () => router.push(isIndependent ? '/(app)/settings/product-visibility' : '/(app)/stores'),
+          },
+        ],
       );
       return;
     }
@@ -137,10 +143,11 @@ export default function AddProductScreen() {
       const { parsed, state: pricingState } = pricing;
       const mrp = parsed.mrp || parsed.sellingPrice;
       const sellingPrice = parsed.sellingPrice;
+      const productStatus = locationComplete ? 'active' : 'draft';
       await productsService.create({
         name: form.name,
-        categoryId,
-        category: category.name,
+        categoryId: isIndependentSeller ? 'independent' : categoryId!,
+        category: isIndependentSeller ? 'General' : category!.name,
         brand: form.brand,
         description: form.description,
         images,
@@ -150,8 +157,8 @@ export default function AddProductScreen() {
         quantity: Number(form.quantity) || 0,
         lowStockThreshold: Number(form.lowStockThreshold) || 5,
         sku: form.sku || `SKU-${Date.now()}`,
-        storeId,
-        status: locationComplete ? 'pending_review' : 'draft',
+        storeId: isIndependentSeller ? undefined : storeId,
+        status: productStatus,
         unitType: pricingState.unitType,
         customUnit: pricingState.unitType === 'other' ? pricingState.customUnit : undefined,
         packageSize: parsed.packageSize,
@@ -160,13 +167,24 @@ export default function AddProductScreen() {
         marginAmount: parsed.margin.amount,
         marginPercent: parsed.margin.percent,
       });
+      await queryClient.invalidateQueries({ queryKey: ['products'] });
       router.back();
+      if (productStatus === 'active') {
+        appAlert(
+          'Product Added',
+          isIndependentSeller
+            ? 'Your product is live under the Active tab. The admin team has been notified and may review it later.'
+            : 'Your product is now live under the Active tab.',
+        );
+      }
+    } catch {
+      appAlert('Error', 'Could not save product. Please try again.');
     } finally {
       setLoading(false);
     }
   }
 
-  if (!category) return null;
+  if (!isIndependentSeller && !category) return null;
 
   const unitLabel = getUnitLabel(pricing.state.unitType, pricing.state.customUnit);
 
@@ -198,10 +216,12 @@ export default function AddProductScreen() {
         {step === 2 && (
           <>
             <Text style={styles.title}>Basic Information</Text>
-            <View style={styles.categoryRow}>
-              <Text style={styles.categoryLabel}>Category</Text>
-              <Text style={styles.categoryValue}>{category.name}</Text>
-            </View>
+            {!isIndependentSeller && category && (
+              <View style={styles.categoryRow}>
+                <Text style={styles.categoryLabel}>Category</Text>
+                <Text style={styles.categoryValue}>{category.name}</Text>
+              </View>
+            )}
             <Input label="Product Name *" value={form.name} onChangeText={(v) => update('name', v)} />
             {suggestions.length > 0 && (
               <View style={styles.suggestions}>
@@ -298,7 +318,7 @@ export default function AddProductScreen() {
                 value={pricing.state.sellingPrice}
                 onChangeText={(v) => pricing.updateField('sellingPrice', v)}
                 keyboardType="numeric"
-                editable={pricing.state.pricingMode === 'total'}
+                editable={false}
               />
             )}
             {pricing.state.pricingMode !== 'per_unit' && pricing.parsed.pricePerUnit > 0 && (

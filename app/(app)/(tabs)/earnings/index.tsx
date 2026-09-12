@@ -10,6 +10,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { Button } from '@/components/ui/Button';
 import { earningsService } from '@/services/api';
+import { useActiveStoreId } from '@/hooks/useActiveStoreId';
 import { formatCurrency } from '@/utils/format';
 import { colors, spacing, typography } from '@/theme';
 
@@ -17,10 +18,12 @@ const PERIODS = ['Today', 'Week', 'Month'] as const;
 
 export default function EarningsScreen() {
   const [period, setPeriod] = useState<(typeof PERIODS)[number]>('Week');
+  const { storeId, isReady, activeStore } = useActiveStoreId();
 
   const { data: summary, isLoading, isError, refetch } = useQuery({
-    queryKey: ['earnings-summary'],
-    queryFn: earningsService.getSummary,
+    queryKey: ['earnings-summary', storeId],
+    queryFn: () => earningsService.getSummary(storeId),
+    enabled: isReady,
   });
 
   const { data: chartData } = useQuery({
@@ -41,6 +44,7 @@ export default function EarningsScreen() {
   return (
     <ScreenWrapper edges={['top']}>
       <Text style={styles.title}>Earnings</Text>
+      {activeStore && <Text style={styles.storeLabel}>{activeStore.name}</Text>}
 
       {isLoading ? (
         <View style={styles.metricsRow}>
@@ -59,6 +63,44 @@ export default function EarningsScreen() {
           <View style={styles.balanceCard}>
             <Text style={styles.balanceLabel}>Available Balance</Text>
             <Text style={styles.balanceValue}>{formatCurrency(summary.availableBalance)}</Text>
+
+            {(summary.commissionRate != null || (summary.commissionTotal ?? 0) > 0) && (
+              <View style={styles.commissionCard}>
+                <View style={styles.commissionHeader}>
+                  <Text style={styles.commissionTitle}>Platform Commission</Text>
+                  {summary.commissionRate != null && (
+                    <Text style={styles.commissionRate}>{summary.commissionRate}%</Text>
+                  )}
+                </View>
+                {summary.commissionLabel && (
+                  <Text style={styles.commissionMeta}>{summary.commissionLabel}</Text>
+                )}
+                {(summary.grossTotal ?? 0) > 0 && (
+                  <View style={styles.commissionRow}>
+                    <Text style={styles.commissionLabel}>Gross Sales</Text>
+                    <Text style={styles.commissionValue}>{formatCurrency(summary.grossTotal ?? 0)}</Text>
+                  </View>
+                )}
+                {(summary.commissionTotal ?? 0) > 0 && (
+                  <View style={styles.commissionRow}>
+                    <Text style={styles.commissionLabel}>Commission Deducted</Text>
+                    <Text style={[styles.commissionValue, styles.commissionDeduction]}>
+                      -{formatCurrency(summary.commissionTotal ?? 0)}
+                    </Text>
+                  </View>
+                )}
+                <View style={styles.commissionRow}>
+                  <Text style={styles.commissionLabel}>Net Earnings</Text>
+                  <Text style={styles.commissionValue}>{formatCurrency(summary.total)}</Text>
+                </View>
+                {summary.scheduledCommission && (
+                  <Text style={styles.scheduledNote}>
+                    {summary.scheduledCommission.rate}% from {summary.scheduledCommission.effectiveFrom} ({summary.scheduledCommission.ruleName})
+                  </Text>
+                )}
+              </View>
+            )}
+
             <View style={styles.settlementRow}>
               <View>
                 <Text style={styles.settlementLabel}>Next Settlement</Text>
@@ -109,7 +151,8 @@ export default function EarningsScreen() {
 }
 
 const styles = StyleSheet.create({
-  title: { ...typography.h1, color: colors.text, marginBottom: spacing.lg },
+  title: { ...typography.h1, color: colors.text, marginBottom: spacing.xs },
+  storeLabel: { ...typography.caption, color: colors.textSecondary, marginBottom: spacing.lg },
   metricsRow: { flexDirection: 'row', gap: spacing.md },
   metricsScroll: { marginBottom: spacing.lg },
   balanceCard: {
@@ -120,6 +163,30 @@ const styles = StyleSheet.create({
   },
   balanceLabel: { ...typography.bodySmall, color: colors.textSecondary },
   balanceValue: { ...typography.display, color: colors.primary, marginVertical: spacing.sm },
+  commissionCard: {
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  commissionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  commissionTitle: { ...typography.bodyMedium, color: colors.text, fontWeight: '600' },
+  commissionRate: { ...typography.h3, color: colors.warning },
+  commissionMeta: { ...typography.caption, color: colors.textMuted, marginTop: spacing.xs, marginBottom: spacing.sm },
+  commissionRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.xs },
+  commissionLabel: { ...typography.caption, color: colors.textSecondary },
+  commissionValue: { ...typography.bodySmall, color: colors.text, fontWeight: '600' },
+  commissionDeduction: { color: colors.danger },
+  scheduledNote: {
+    ...typography.caption,
+    color: colors.warning,
+    marginTop: spacing.sm,
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
   settlementRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.lg },
   settlementLabel: { ...typography.caption, color: colors.textMuted },
   settlementValue: { ...typography.bodyMedium, color: colors.text, marginTop: 2 },

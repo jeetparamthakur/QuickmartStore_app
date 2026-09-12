@@ -29,9 +29,7 @@ const STATUS_VARIANT: Record<KycStatus, 'warning' | 'info' | 'success' | 'danger
 };
 
 export default function KycScreen() {
-  const setOnboardingStep = usePartnerStore((s) => s.setOnboardingStep);
   const setProfile = usePartnerStore((s) => s.setProfile);
-  const profile = usePartnerStore((s) => s.profile);
   const [uploaded, setUploaded] = useState<Record<string, boolean>>({});
   const [kycStatus, setKycStatus] = useState<KycStatus>('pending');
   const [rejectionReason, setRejectionReason] = useState<string>();
@@ -94,11 +92,8 @@ export default function KycScreen() {
     setLoading(true);
     try {
       await kycService.submit();
-      await onboardingService.update({ onboardingStep: 'bank_setup' });
-      setOnboardingStep('bank_setup');
-      if (profile) {
-        setProfile({ ...profile, onboardingStep: 'bank_setup' });
-      }
+      const updated = await onboardingService.update({ onboardingStep: 'bank_setup' });
+      setProfile(updated);
       router.push('/(onboarding)/bank-setup');
     } catch {
       Alert.alert('Submission failed', 'Could not submit KYC documents. Please try again.');
@@ -113,7 +108,9 @@ export default function KycScreen() {
       <ScreenWrapper>
         <StepProgress currentStep={4} totalSteps={5} />
         <Text style={styles.title}>KYC & Verification</Text>
-        <Text style={styles.subtitle}>Upload documents for verification</Text>
+        <Text style={styles.subtitle}>
+          Upload documents. Files are stored securely and sent to admin for manual approval.
+        </Text>
 
         {initialLoading ? (
           <Skeleton height={28} width={160} style={{ marginBottom: spacing.lg }} />

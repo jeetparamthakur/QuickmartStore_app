@@ -92,7 +92,6 @@ export const usePartnerStore = create<PartnerState>((set, get) => ({
       profile: {
         ...(s.profile ?? defaultProfile),
         sellerSetup: setup,
-        onboardingStep: 'kyc',
       },
     })),
 

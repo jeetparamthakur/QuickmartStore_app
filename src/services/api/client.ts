@@ -1,3 +1,5 @@
+import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 import { fetch as expoFetch } from 'expo/fetch';
 import { File } from 'expo-file-system';
 
@@ -17,8 +19,34 @@ export class ApiError extends Error {
   }
 }
 
-export const API_BASE_URL =
-  process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://api.example.com';
+const FALLBACK_API_BASE_URL = 'http://localhost:3000';
+
+function getDevMachineHost(): string | null {
+  const sources = [
+    Constants.expoConfig?.hostUri,
+    Constants.expoGoConfig?.debuggerHost,
+    Constants.linkingUri,
+  ].filter(Boolean) as string[];
+
+  for (const source of sources) {
+    const ip = source.match(/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/);
+    if (ip) return ip[1];
+  }
+
+  if (Platform.OS === 'android') return '10.0.2.2';
+  return null;
+}
+
+function resolveApiBaseUrl(raw: string): string {
+  if (!raw.includes('localhost') && !raw.includes('127.0.0.1')) return raw;
+  const host = getDevMachineHost();
+  if (!host) return raw;
+  return raw.replace(/localhost|127\.0\.0\.1/g, host);
+}
+
+export const API_BASE_URL = resolveApiBaseUrl(
+  process.env.EXPO_PUBLIC_API_BASE_URL ?? FALLBACK_API_BASE_URL,
+);
 export const API_VERSION = process.env.EXPO_PUBLIC_API_VERSION ?? 'v1';
 export const USE_MOCK_API = process.env.EXPO_PUBLIC_USE_MOCK_API === 'true';
 const API_DEBUG = __DEV__ && process.env.EXPO_PUBLIC_API_DEBUG !== 'false';
@@ -45,7 +73,7 @@ if (API_DEBUG) {
 
 let authTokenGetter: (() => string | null) | null = null;
 let refreshTokenGetter: (() => string | null) | null = null;
-let onTokensRefreshed: ((token: string, refreshToken: string) => void) | null = null;
+let onTokensRefreshed: ((token: string, refreshToken: string) => void | Promise<void>) | null = null;
 let onUnauthorized: (() => void) | null = null;
 let refreshPromise: Promise<string | null> | null = null;
 
@@ -58,7 +86,7 @@ export function setRefreshTokenGetter(getter: () => string | null) {
 }
 
 export function setOnTokensRefreshed(
-  handler: (token: string, refreshToken: string) => void
+  handler: (token: string, refreshToken: string) => void | Promise<void>
 ) {
   onTokensRefreshed = handler;
 }
@@ -91,7 +119,7 @@ async function refreshAccessToken(): Promise<string | null> {
       const nextRefreshToken = (data as { refreshToken?: string }).refreshToken;
       if (!token || !nextRefreshToken) return null;
 
-      onTokensRefreshed?.(token, nextRefreshToken);
+      await onTokensRefreshed?.(token, nextRefreshToken);
       return token;
     } catch {
       return null;
@@ -137,8 +165,8 @@ export async function apiClient<T>(
   const token = authTokenGetter?.();
   const requestHeaders: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...headers,
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...headers,
   };
 
   logApi('request', method, url, {
@@ -159,7 +187,17 @@ export async function apiClient<T>(
     if (response.status === 401 && allowRefresh) {
       const nextToken = await refreshAccessToken();
       if (nextToken) {
-        return apiClient<T>(path, options, false);
+        return apiClient<T>(
+          path,
+          {
+            ...options,
+            headers: {
+              ...options.headers,
+              Authorization: `Bearer ${nextToken}`,
+            },
+          },
+          false,
+        );
       }
       onUnauthorized?.();
       const error = new ApiError(
@@ -220,7 +258,8 @@ export async function uploadMultipart<T>(
   const startedAt = Date.now();
 
   const formData = new FormData();
-  formData.append('file', new File(uri));
+  const file = new File(uri);
+  formData.append('file', file);
   formData.append('type', type);
 
   logApi('request', 'POST', url, { type, hasAuth: Boolean(token) });

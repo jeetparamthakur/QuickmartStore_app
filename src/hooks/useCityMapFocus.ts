@@ -22,8 +22,12 @@ export function useCityMapFocus() {
     if (trimmed.length < MIN_CITY_LENGTH) return;
 
     timerRef.current = setTimeout(async () => {
-      const result = await geocodeCity(trimmed);
-      if (result) setMapFocus(result);
+      try {
+        const result = await geocodeCity(trimmed);
+        if (result) setMapFocus(result);
+      } catch {
+        // Ignore geocoder failures; user can still pin location manually.
+      }
     }, DEBOUNCE_MS);
   }, []);
 

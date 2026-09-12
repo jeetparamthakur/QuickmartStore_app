@@ -9,6 +9,7 @@ import type { Product } from '@/types/product';
 type Props = {
   product: Product;
   onPress: () => void;
+  onDelete?: () => void;
 };
 
 const stockVariant = {
@@ -17,50 +18,63 @@ const stockVariant = {
   out_of_stock: 'danger' as const,
 };
 
-export function ProductCard({ product, onPress }: Props) {
+export function ProductCard({ product, onPress, onDelete }: Props) {
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.9}>
-      <View style={styles.imagePlaceholder}>
-        <Ionicons name="image-outline" size={32} color={colors.textMuted} />
-      </View>
-      <View style={styles.content}>
-        <Text style={styles.name} numberOfLines={2}>{product.name}</Text>
-        <Text style={styles.category}>
-          {product.packageSize
-            ? `${formatPackageSize(product.packageSize, product.unitType, product.customUnit)} • `
-            : ''}
-          {product.category}
-        </Text>
-        <View style={styles.row}>
-          <Text style={styles.price}>{formatCurrency(product.sellingPrice)}</Text>
-          {product.discountPercent > 0 && (
-            <Text style={styles.mrp}>{formatCurrency(product.mrp)}</Text>
+    <View style={styles.card}>
+      <TouchableOpacity style={styles.mainArea} onPress={onPress} activeOpacity={0.9}>
+        <View style={styles.imagePlaceholder}>
+          <Ionicons name="image-outline" size={32} color={colors.textMuted} />
+        </View>
+        <View style={styles.content}>
+          <Text style={styles.name} numberOfLines={2}>{product.name}</Text>
+          <Text style={styles.category}>
+            {product.packageSize
+              ? `${formatPackageSize(product.packageSize, product.unitType, product.customUnit)} • `
+              : ''}
+            {product.category}
+          </Text>
+          <View style={styles.row}>
+            <Text style={styles.price}>{formatCurrency(product.sellingPrice)}</Text>
+            {product.discountPercent > 0 && (
+              <Text style={styles.mrp}>{formatCurrency(product.mrp)}</Text>
+            )}
+          </View>
+          <View style={styles.footer}>
+            <StatusBadge
+              label={product.stockStatus.replace('_', ' ').toUpperCase()}
+              variant={stockVariant[product.stockStatus]}
+            />
+            <Text style={styles.qty}>Qty: {product.quantity}</Text>
+          </View>
+          {product.status === 'rejected' && product.rejectionReason && (
+            <Text style={styles.rejectReason}>{product.rejectionReason}</Text>
           )}
         </View>
-        <View style={styles.footer}>
-          <StatusBadge
-            label={product.stockStatus.replace('_', ' ').toUpperCase()}
-            variant={stockVariant[product.stockStatus]}
-          />
-          <Text style={styles.qty}>Qty: {product.quantity}</Text>
-        </View>
-        {product.status === 'rejected' && product.rejectionReason && (
-          <Text style={styles.rejectReason}>{product.rejectionReason}</Text>
-        )}
-      </View>
-    </TouchableOpacity>
+      </TouchableOpacity>
+      {onDelete && (
+        <TouchableOpacity
+          style={styles.deleteBtn}
+          onPress={onDelete}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Ionicons name="trash-outline" size={18} color={colors.danger} />
+        </TouchableOpacity>
+      )}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
+    alignItems: 'flex-start',
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
     padding: spacing.md,
     marginBottom: spacing.md,
     ...shadows.sm,
   },
+  mainArea: { flex: 1, flexDirection: 'row' },
   imagePlaceholder: {
     width: 72,
     height: 72,
@@ -71,6 +85,7 @@ const styles = StyleSheet.create({
   },
   content: { flex: 1, marginLeft: spacing.md },
   name: { ...typography.bodyMedium, color: colors.text },
+  deleteBtn: { padding: spacing.xs, marginLeft: spacing.xs },
   category: { ...typography.caption, color: colors.textMuted, marginTop: 2 },
   row: { flexDirection: 'row', alignItems: 'center', marginTop: spacing.xs, gap: spacing.sm },
   price: { ...typography.bodyMedium, color: colors.primary, fontWeight: '700' },

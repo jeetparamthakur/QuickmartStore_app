@@ -10,7 +10,6 @@ import { colors } from '@/theme';
 
 export default function Index() {
   const { isLoading, isAuthenticated } = useAuthStore();
-  const profile = usePartnerStore((s) => s.profile);
   const setProfile = usePartnerStore((s) => s.setProfile);
   const [checking, setChecking] = useState(true);
   const [route, setRoute] = useState<string | null>(null);
@@ -23,15 +22,12 @@ export default function Index() {
       }
 
       try {
-        let currentProfile = profile;
-        if (!currentProfile) {
-          currentProfile = await partnerService.getProfile();
-          setProfile(currentProfile);
-        }
+        const currentProfile = await partnerService.getProfile();
+        setProfile(currentProfile);
         await syncOnboardingComplete(currentProfile);
         setRoute(getPostAuthRoute(currentProfile));
       } catch {
-        const step = profile?.onboardingStep ?? 'partner_type';
+        const step = usePartnerStore.getState().profile?.onboardingStep ?? 'partner_type';
         setRoute(getOnboardingRoute(step));
       } finally {
         setChecking(false);
@@ -41,7 +37,7 @@ export default function Index() {
     if (!isLoading) {
       check();
     }
-  }, [isLoading, isAuthenticated, profile, setProfile]);
+  }, [isLoading, isAuthenticated, setProfile]);
 
   if (isLoading || checking) {
     return (

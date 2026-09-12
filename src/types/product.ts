@@ -61,18 +61,39 @@ export type Product = {
 };
 
 export type ProductListFilters = {
-  status?: ProductStatus;
+  tab?: ProductTab;
   storeId?: string;
   categoryId?: string;
 };
 
-export const PRODUCT_TABS: { key: ProductStatus | 'all'; label: string }[] = [
+export type ProductTab = 'active' | 'low_stock' | 'out_of_stock' | 'rejected';
+
+export const PRODUCT_TABS: { key: ProductTab; label: string }[] = [
   { key: 'active', label: 'Active' },
-  { key: 'draft', label: 'Draft' },
+  { key: 'low_stock', label: 'Low Stock' },
   { key: 'out_of_stock', label: 'Out of Stock' },
-  { key: 'pending_review', label: 'Pending' },
   { key: 'rejected', label: 'Rejected' },
 ];
+
+export function matchesProductTab(product: Product, tab: ProductTab): boolean {
+  if (tab === 'rejected') {
+    return product.status === 'rejected';
+  }
+
+  if (product.status === 'rejected' || product.status === 'draft') {
+    return false;
+  }
+
+  if (tab === 'out_of_stock') {
+    return product.stockStatus === 'out_of_stock' || product.quantity <= 0;
+  }
+
+  if (tab === 'low_stock') {
+    return product.stockStatus === 'low_stock' && product.quantity > 0;
+  }
+
+  return product.stockStatus === 'in_stock' && product.quantity > 0;
+}
 
 export type CatalogSuggestion = {
   id: string;

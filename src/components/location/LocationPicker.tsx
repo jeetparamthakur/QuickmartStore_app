@@ -5,12 +5,13 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
+  Platform,
 } from 'react-native';
-import MapView, { Marker, Circle, Region } from 'react-native-maps';
+import MapView, { Marker, Circle, UrlTile, Region } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { reverseGeocode } from '@/services/geocoding';
+import { appAlert } from '@/utils/appDialog';
 import type { AddressResult, MapFocus } from '@/utils/address';
 import { colors, radius, spacing, typography } from '@/theme';
 
@@ -30,6 +31,8 @@ const DEFAULT_REGION: Region = {
   latitudeDelta: 0.05,
   longitudeDelta: 0.05,
 };
+
+const OSM_TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 
 export function LocationPicker({
   latitude,
@@ -70,7 +73,7 @@ export function LocationPicker({
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission required', 'Location permission is needed to use your current location.');
+        appAlert('Permission required', 'Location permission is needed to use your current location.');
         return;
       }
 
@@ -87,9 +90,22 @@ export function LocationPicker({
       });
 
       if (onCurrentLocationResolved) {
-        const address = await reverseGeocode(lat, lng);
-        onCurrentLocationResolved(address);
+        try {
+          const address = await reverseGeocode(lat, lng);
+          onCurrentLocationResolved(address);
+        } catch {
+          onCurrentLocationResolved({
+            addressLine: '',
+            city: '',
+            area: '',
+            pincode: '',
+            latitude: lat,
+            longitude: lng,
+          });
+        }
       }
+    } catch {
+      appAlert('Location Error', 'Could not fetch your current location. Please try again or pin on the map.');
     } finally {
       setLoadingGps(false);
     }
@@ -108,6 +124,7 @@ export function LocationPicker({
         <MapView
           ref={mapRef}
           style={styles.map}
+          mapType={Platform.OS === 'android' ? 'none' : 'standard'}
           initialRegion={{
             ...DEFAULT_REGION,
             latitude: latitude || DEFAULT_REGION.latitude,
@@ -117,6 +134,9 @@ export function LocationPicker({
           showsUserLocation
           showsMyLocationButton={false}
         >
+          {Platform.OS === 'android' && (
+            <UrlTile urlTemplate={OSM_TILE_URL} maximumZ={19} flipY={false} />
+          )}
           {hasPin && (
             <>
               <Marker
@@ -165,6 +185,9 @@ export function LocationPicker({
       )}
 
       <Text style={styles.hint}>Tap on map or drag the pin to set exact location</Text>
+      {Platform.OS === 'android' && (
+        <Text style={styles.attribution}>© OpenStreetMap contributors</Text>
+      )}
     </View>
   );
 }
@@ -200,4 +223,10 @@ const styles = StyleSheet.create({
   gpsText: { ...typography.bodySmall, color: colors.primary, fontWeight: '600' },
   coords: { ...typography.caption, color: colors.textSecondary, marginTop: spacing.sm, textAlign: 'center' },
   hint: { ...typography.caption, color: colors.textMuted, marginTop: spacing.xs, textAlign: 'center' },
+  attribution: {
+    ...typography.caption,
+    color: colors.textMuted,
+    marginTop: spacing.xs,
+    textAlign: 'center',
+  },
 });

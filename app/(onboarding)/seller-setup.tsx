@@ -16,11 +16,11 @@ import { colors, spacing, typography } from '@/theme';
 
 export default function SellerSetupScreen() {
   const setSellerSetup = usePartnerStore((s) => s.setSellerSetup);
+  const setProfile = usePartnerStore((s) => s.setProfile);
+  const businessDetails = usePartnerStore((s) => s.profile?.businessDetails);
   const existing = usePartnerStore((s) => s.profile?.sellerSetup);
 
   const [form, setForm] = useState({
-    sellerName: existing?.sellerName ?? '',
-    shopName: existing?.shopName ?? '',
     pickupAddress: existing?.pickupAddress ?? '',
     city: existing?.city ?? '',
     area: existing?.area ?? '',
@@ -28,7 +28,6 @@ export default function SellerSetupScreen() {
     latitude: existing?.latitude ?? 0,
     longitude: existing?.longitude ?? 0,
     deliveryRadius: existing?.deliveryRadius ?? 5,
-    productCategory: existing?.productCategory ?? '',
     deliveryPreference: existing?.deliveryPreference ?? 'platform',
   });
 
@@ -66,13 +65,19 @@ export default function SellerSetupScreen() {
       Alert.alert('Required', 'Please pin your pickup location on the map');
       return;
     }
-    setSellerSetup(form);
+    const sellerSetup = {
+      sellerName: businessDetails?.fullName?.trim() ?? existing?.sellerName ?? '',
+      shopName: businessDetails?.businessName?.trim() || existing?.shopName,
+      ...form,
+    };
+    setSellerSetup(sellerSetup);
     setLoading(true);
     try {
-      await onboardingService.update({
-        sellerSetup: form,
+      const profile = await onboardingService.update({
+        sellerSetup,
         onboardingStep: 'kyc',
       });
+      setProfile(profile);
       router.push('/(onboarding)/kyc');
     } catch {
       Alert.alert('Error', 'Could not save seller setup. Please try again.');
@@ -88,10 +93,6 @@ export default function SellerSetupScreen() {
         <StepProgress currentStep={3} totalSteps={5} />
         <Text style={styles.title}>Independent Seller Setup</Text>
         <Text style={styles.subtitle}>Set pickup location and product visibility radius</Text>
-
-        <Input label="Seller Name *" value={form.sellerName} onChangeText={(v) => update('sellerName', v)} />
-        <Input label="Business Name (Optional)" value={form.shopName} onChangeText={(v) => update('shopName', v)} />
-        <Input label="Product Category *" value={form.productCategory} onChangeText={(v) => update('productCategory', v)} />
 
         <Text style={styles.sectionLabel}>Pickup Location</Text>
         <AddressSearchInput onSelect={applyAddress} placeholder="Search pickup address..." />

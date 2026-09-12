@@ -1,5 +1,5 @@
-import { useCallback, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Switch, TouchableOpacity } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, Switch, TouchableOpacity, Linking } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -8,11 +8,14 @@ import { ScreenWrapper } from '@/components/layout/ScreenWrapper';
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
 import { EarningsCard } from '@/components/cards/EarningsCard';
 import { BannerCard } from '@/components/cards/BannerCard';
+import { BannerCarousel } from '@/components/cards/BannerCarousel';
+import type { Banner } from '@/types/index';
 import { QuickActionButton } from '@/components/ui/QuickActionButton';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { usePartnerStore } from '@/stores/partnerStore';
 import { usePartnerConfig, useFeatureFlag } from '@/hooks/usePermissions';
+import { useActiveStoreId } from '@/hooks/useActiveStoreId';
 import { earningsService, bannersService } from '@/services/api';
 import { colors, gradients, radius, shadows, spacing, typography } from '@/theme';
 
@@ -32,25 +35,42 @@ export default function DashboardScreen() {
   const toggleStoreOpen = usePartnerStore((s) => s.toggleStoreOpen);
   const config = usePartnerConfig();
   const adsEnabled = useFeatureFlag('seller_ads_enabled');
+  const { storeId, isReady } = useActiveStoreId();
 
   const { data: earnings, isLoading: earningsLoading } = useQuery({
-    queryKey: ['earnings-summary'],
-    queryFn: earningsService.getSummary,
+    queryKey: ['earnings-summary', storeId],
+    queryFn: () => earningsService.getSummary(storeId),
+    enabled: isReady,
   });
 
-  const { data: banners } = useQuery({
+  const { data: banners, isLoading: bannersLoading } = useQuery({
     queryKey: ['banners'],
     queryFn: bannersService.list,
   });
 
+  const topBanners = useMemo(
+    () => banners?.filter((b) => b.placement === 'HOME_TOP') ?? [],
+    [banners],
+  );
+  const announcementBanners = useMemo(
+    () => banners?.filter((b) => b.placement !== 'HOME_TOP') ?? [],
+    [banners],
+  );
+
+  const handleBannerPress = useCallback((banner: Banner) => {
+    if (banner.linkUrl) {
+      void Linking.openURL(banner.linkUrl);
+    }
+  }, []);
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['earnings-summary'] }),
+      queryClient.invalidateQueries({ queryKey: ['earnings-summary', storeId] }),
       queryClient.invalidateQueries({ queryKey: ['banners'] }),
     ]);
     setRefreshing(false);
-  }, [queryClient]);
+  }, [queryClient, storeId]);
 
   const isOpen = profile?.isStoreOpen ?? false;
 
@@ -70,6 +90,12 @@ export default function DashboardScreen() {
     <ScreenWrapper edges={['top']} refreshing={refreshing} onRefresh={onRefresh}>
       <DashboardHeader name={profile?.name ?? 'Partner'} />
 
+      {bannersLoading ? (
+        <Skeleton height={160} style={{ borderRadius: radius.lg, marginBottom: spacing.lg }} />
+      ) : topBanners.length > 0 ? (
+        <BannerCarousel banners={topBanners} onPress={handleBannerPress} />
+      ) : null}
+
       <View style={[styles.statusCard, isOpen ? styles.statusCardOpen : styles.statusCardClosed]}>
         <View style={styles.statusLeft}>
           <Text style={styles.statusLabel}>Store Status</Text>
@@ -80,12 +106,15 @@ export default function DashboardScreen() {
             </Text>
           </View>
         </View>
-        <Switch
-          value={isOpen}
-          onValueChange={toggleStoreOpen}
-          trackColor={{ true: colors.primaryLight, false: colors.border }}
-          thumbColor={isOpen ? colors.primary : colors.textMuted}
-        />
+        <View style={styles.switchWrap}>
+          <Switch
+            value={isOpen}
+            onValueChange={toggleStoreOpen}
+            trackColor={{ true: colors.secondary, false: colors.border }}
+            thumbColor={colors.white}
+            ios_backgroundColor={colors.border}
+          />
+        </View>
       </View>
 
       <SectionHeader title="Today's Metrics" subtitle="Your performance at a glance" />
@@ -122,11 +151,11 @@ export default function DashboardScreen() {
         ))}
       </ScrollView>
 
-      {banners && banners.length > 0 && (
+      {announcementBanners.length > 0 && (
         <>
           <SectionHeader title="Announcements" />
-          {banners.map((b) => (
-            <BannerCard key={b.id} banner={b} />
+          {announcementBanners.map((b) => (
+            <BannerCard key={b.id} banner={b} onPress={() => handleBannerPress(b)} />
           ))}
         </>
       )}
@@ -180,6 +209,14 @@ const styles = StyleSheet.create({
   statusText: { ...typography.label, fontWeight: '700' },
   statusTextOpen: { color: colors.success },
   statusTextClosed: { color: colors.textMuted },
+  switchWrap: {
+    backgroundColor: colors.white,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 2,
+  },
   metricsRow: { flexDirection: 'row', gap: spacing.md, marginBottom: spacing.xl },
   metricsScroll: { marginBottom: spacing.xl },
   actions: { gap: spacing.lg, paddingBottom: spacing.lg },

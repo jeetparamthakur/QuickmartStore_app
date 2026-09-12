@@ -98,3 +98,91 @@ export function parseAddressComponents(
     longitude: lng,
   };
 }
+
+type NominatimAddress = {
+  road?: string;
+  neighbourhood?: string;
+  suburb?: string;
+  city?: string;
+  town?: string;
+  village?: string;
+  county?: string;
+  state_district?: string;
+  postcode?: string;
+};
+
+type NominatimResult = {
+  display_name?: string;
+  address?: NominatimAddress;
+};
+
+/** Parse Nominatim reverse/forward geocode JSON into our address fields */
+export function parseNominatimResult(
+  result: NominatimResult,
+  lat: number,
+  lng: number
+): AddressResult | null {
+  const address = result.address;
+  if (!address) return null;
+
+  const city =
+    address.city ??
+    address.town ??
+    address.village ??
+    address.county ??
+    address.state_district ??
+    '';
+  const area = address.suburb ?? address.neighbourhood ?? address.road ?? '';
+  const pincode = address.postcode ?? '';
+  const addressLine =
+    result.display_name ??
+    [address.road, area, city].filter(Boolean).join(', ');
+
+  return {
+    addressLine,
+    city,
+    area,
+    pincode,
+    latitude: lat,
+    longitude: lng,
+  };
+}
+
+type PhotonProperties = {
+  name?: string;
+  street?: string;
+  city?: string;
+  district?: string;
+  state?: string;
+  postcode?: string;
+  country?: string;
+};
+
+type PhotonFeature = {
+  geometry?: { coordinates?: [number, number] };
+  properties?: PhotonProperties;
+};
+
+/** Parse a Photon (OpenStreetMap) search result into our address fields */
+export function parsePhotonFeature(feature: PhotonFeature): AddressResult | null {
+  const coords = feature.geometry?.coordinates;
+  if (!coords?.length) return null;
+
+  const [lng, lat] = coords;
+  const props = feature.properties ?? {};
+  const city = props.city ?? props.district ?? props.state ?? '';
+  const area = props.name ?? props.street ?? '';
+  const pincode = props.postcode ?? '';
+  const addressLine = [props.name, props.street, city, props.state, props.country]
+    .filter(Boolean)
+    .join(', ');
+
+  return {
+    addressLine,
+    city,
+    area,
+    pincode,
+    latitude: lat,
+    longitude: lng,
+  };
+}

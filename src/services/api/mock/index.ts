@@ -2,6 +2,7 @@ import type { Order, OrderStatus } from '@/types/order';
 import type { Product, ProductStatus, CatalogSuggestion, NearbyProductsResponse } from '@/types/product';
 import type { ProductCategory } from '@/types/category';
 import type { ProductListFilters } from '@/types/product';
+import { matchesProductTab } from '@/types/product';
 import type { Store, StaffMember } from '@/types/store';
 import type { DeliveryRequest, PartnerDeliveryPreferences } from '@/types/delivery';
 import type {
@@ -19,9 +20,116 @@ import type {
 } from '@/types/index';
 import type { FeatureFlags, PartnerProfile } from '@/types/partner';
 import type { UserLocation, NearbyStore } from '@/types/location';
+import { mapPartnerProfile } from '../mappers/partnerProfile';
 import { findNearbyStores, findNearbyProducts, isPartnerWithinPickupRadius } from '@/utils/geo';
 
 const delay = (ms = 400) => new Promise((r) => setTimeout(r, ms));
+
+function createEmptySessionProfile(): PartnerProfile {
+  return {
+    id: 'partner-1',
+    partnerType: 'STORE',
+    name: '',
+    approvalStatus: 'pending',
+    onboardingStep: 'partner_type',
+    isStoreOpen: true,
+  };
+}
+
+let sessionProfile: PartnerProfile = createEmptySessionProfile();
+
+type MockOnboardingUpdate = {
+  onboardingStep?: PartnerProfile['onboardingStep'];
+  partnerType?: PartnerProfile['partnerType'];
+  businessDetails?: Record<string, unknown>;
+  storeDetails?: Record<string, unknown>;
+  sellerSetup?: Record<string, unknown>;
+  bankDetails?: Record<string, unknown>;
+};
+
+function applyMockOnboardingUpdate(data: MockOnboardingUpdate): PartnerProfile {
+  if (data.partnerType) sessionProfile.partnerType = data.partnerType;
+  if (data.onboardingStep) sessionProfile.onboardingStep = data.onboardingStep;
+
+  if (data.businessDetails) {
+    sessionProfile.businessDetails = {
+      ...(sessionProfile.businessDetails ?? {
+        fullName: '',
+        email: '',
+        description: '',
+        panNumber: '',
+      }),
+      ...(data.businessDetails as PartnerProfile['businessDetails']),
+    };
+    const fullName = data.businessDetails.fullName;
+    if (typeof fullName === 'string' && fullName.trim()) {
+      sessionProfile.name = fullName.trim();
+    }
+  }
+
+  if (data.storeDetails) {
+    sessionProfile.storeDetails = {
+      ...(sessionProfile.storeDetails ?? {
+        name: '',
+        description: '',
+        address: '',
+        city: '',
+        area: '',
+        pincode: '',
+        openingTime: '08:00',
+        closingTime: '22:00',
+        is24Hours: false,
+        deliveryRadius: 5,
+        partnerPickupRadiusKm: 3,
+        platformDeliveryEnabled: true,
+        contactNumber: '',
+      }),
+      ...(data.storeDetails as PartnerProfile['storeDetails']),
+    };
+    const storeName = data.storeDetails.name;
+    if (typeof storeName === 'string' && storeName.trim()) {
+      sessionProfile.businessDetails = {
+        ...(sessionProfile.businessDetails ?? {
+          fullName: sessionProfile.name,
+          email: '',
+          description: '',
+          panNumber: '',
+        }),
+        storeName: storeName.trim(),
+      };
+    }
+  }
+
+  if (data.sellerSetup) {
+    sessionProfile.sellerSetup = {
+      ...(sessionProfile.sellerSetup ?? {
+        sellerName: '',
+        pickupAddress: '',
+        city: '',
+        area: '',
+        pincode: '',
+        deliveryRadius: 5,
+        productCategory: '',
+        deliveryPreference: 'platform',
+      }),
+      ...(data.sellerSetup as PartnerProfile['sellerSetup']),
+    };
+  }
+
+  if (data.bankDetails) {
+    sessionProfile.bankDetails = mapPartnerProfile({
+      ...sessionProfile,
+      bankDetails: {
+        ...(sessionProfile.bankDetails ?? {}),
+        ...data.bankDetails,
+      },
+    }).bankDetails;
+  }
+
+  return { ...sessionProfile };
+}
+
+let mockDeliveryRequests: DeliveryRequest[] = [];
 
 let mockOrders: Order[] = [
   {
@@ -135,7 +243,23 @@ let mockOrders: Order[] = [
   },
 ];
 
-let mockDeliveryRequests: DeliveryRequest[] = [];
+let mockStaffMembers: StaffMember[] = [
+  {
+    id: 'st1',
+    name: 'Priya Singh',
+    email: 'priya@example.com',
+    phone: '+919876543212',
+    role: 'order_manager',
+    storeId: 's1',
+    permissions: {
+      manageOrders: true,
+      manageProducts: false,
+      manageInventory: false,
+      viewEarnings: false,
+    },
+    createdAt: new Date().toISOString(),
+  },
+];
 
 let mockCategories: ProductCategory[] = [
   { id: 'pc1', storeId: 's1', name: 'Dairy', sortOrder: 0, createdAt: new Date().toISOString() },
@@ -464,11 +588,12 @@ export const mockApi = {
     },
     verifyOtp: async (phone: string, otp: string) => {
       await delay();
-      if (otp.length !== 6) throw new Error('Invalid OTP');
-      return { token: 'mock-jwt-token', phone };
+      if (otp !== '000000') throw new Error('Invalid OTP');
+      return { token: 'mock-jwt-token', refreshToken: 'mock-refresh-token', phone };
     },
     logout: async () => {
       await delay(200);
+      sessionProfile = createEmptySessionProfile();
       return { success: true };
     },
   },
@@ -489,22 +614,23 @@ export const mockApi = {
   partner: {
     getProfile: async (): Promise<PartnerProfile> => {
       await delay();
-      return {
-        id: 'partner-1',
-        partnerType: 'STORE',
-        name: 'Rahul',
-        approvalStatus: 'approved',
-        onboardingStep: 'completed',
-        isStoreOpen: true,
-        businessDetails: {
-          fullName: 'Rahul Sharma',
-          storeName: 'ABC Supermarket',
-          mobile: '+919876543210',
-          email: 'rahul@example.com',
-          description: 'Neighborhood grocery store',
-          panNumber: 'ABCDE1234F',
-        },
-      };
+      return { ...sessionProfile };
+    },
+    updateOnboarding: async (data: MockOnboardingUpdate): Promise<PartnerProfile> => {
+      await delay();
+      return applyMockOnboardingUpdate(data);
+    },
+    completeOnboarding: async (bankDetails?: Record<string, unknown>): Promise<PartnerProfile> => {
+      await delay();
+      if (bankDetails) {
+        applyMockOnboardingUpdate({ bankDetails });
+      }
+      sessionProfile.onboardingStep = 'pending_approval';
+      sessionProfile.approvalStatus = 'under_review';
+      return { ...sessionProfile };
+    },
+    resetSession: () => {
+      sessionProfile = createEmptySessionProfile();
     },
   },
 
@@ -636,8 +762,8 @@ export const mockApi = {
     list: async (filters?: ProductListFilters): Promise<Product[]> => {
       await delay();
       let results = [...mockProducts];
-      if (filters?.status) {
-        results = results.filter((p) => p.status === filters.status);
+      if (filters?.tab) {
+        results = results.filter((p) => matchesProductTab(p, filters.tab!));
       }
       if (filters?.storeId) {
         results = results.filter((p) => p.storeId === filters.storeId);
@@ -655,8 +781,11 @@ export const mockApi = {
     },
     create: async (data: Partial<Product>): Promise<Product> => {
       await delay();
-      if (!data.storeId || !data.categoryId) {
-        throw new Error('storeId and categoryId are required');
+      if (!data.storeId && !data.categoryId) {
+        throw new Error('Product details are incomplete');
+      }
+      if (data.storeId && !data.categoryId) {
+        throw new Error('categoryId is required for store products');
       }
       const sellingPrice = data.sellingPrice ?? 0;
       const purchasePrice = data.purchasePrice ?? 0;
@@ -670,7 +799,7 @@ export const mockApi = {
         ...data,
         id: `p${Date.now()}`,
         name: data.name ?? 'New Product',
-        categoryId: data.categoryId,
+        categoryId: data.categoryId ?? 'independent',
         category: data.category ?? 'General',
         description: data.description ?? '',
         images: data.images ?? [],
@@ -699,6 +828,13 @@ export const mockApi = {
         p.id === id ? { ...p, ...data } : p
       );
       return mockProducts.find((p) => p.id === id)!;
+    },
+    delete: async (id: string): Promise<{ success: true }> => {
+      await delay();
+      const exists = mockProducts.some((p) => p.id === id);
+      if (!exists) throw new Error('Product not found');
+      mockProducts = mockProducts.filter((p) => p.id !== id);
+      return { success: true };
     },
     searchCatalog: async (query: string): Promise<CatalogSuggestion[]> => {
       await delay(300);
@@ -786,6 +922,33 @@ export const mockApi = {
       await delay();
       const store = mockStores.find((s) => s.id === id);
       if (!store) throw new Error('Store not found');
+      return store;
+    },
+    create: async (data: Partial<Store>): Promise<Store> => {
+      await delay();
+      const store: Store = {
+        id: `store-${Date.now()}`,
+        name: data.name ?? 'New Store',
+        category: 'General',
+        description: data.description ?? '',
+        address: data.address ?? '',
+        city: data.city,
+        area: data.area,
+        pincode: data.pincode,
+        latitude: data.latitude,
+        longitude: data.longitude,
+        openingTime: data.openingTime ?? '08:00',
+        closingTime: data.closingTime ?? '22:00',
+        is24Hours: data.is24Hours ?? false,
+        deliveryRadius: data.deliveryRadius ?? 5,
+        partnerPickupRadiusKm: data.partnerPickupRadiusKm ?? 3,
+        platformDeliveryEnabled: data.platformDeliveryEnabled ?? true,
+        contactNumber: data.contactNumber ?? '',
+        isOpen: true,
+        activeOrders: 0,
+        partnerId: 'partner-1',
+      };
+      mockStores.push(store);
       return store;
     },
     getNearby: async (location: UserLocation): Promise<NearbyStore[]> => {
@@ -910,6 +1073,17 @@ export const mockApi = {
         week: 78200,
         month: 324500,
         total: 1250000,
+        grossTotal: 1388888,
+        commissionTotal: 138888,
+        commissionRate: 10,
+        commissionType: 'PERCENTAGE',
+        commissionLabel: 'Store Seller Commission',
+        scheduledCommission: {
+          rate: 12,
+          type: 'PERCENTAGE',
+          effectiveFrom: '2026-10-01',
+          ruleName: 'Q4 Store Commission',
+        },
         pendingSettlement: 8500,
         availableBalance: 25000,
         nextSettlement: 8500,
@@ -970,17 +1144,21 @@ export const mockApi = {
   bank: {
     get: async (): Promise<BankAccount> => {
       await delay();
+      if (sessionProfile.bankDetails) {
+        return sessionProfile.bankDetails;
+      }
       return {
-        accountHolderName: 'Rahul Sharma',
-        bankName: 'HDFC Bank',
-        accountNumber: '****4567',
-        ifscCode: 'HDFC0001234',
-        verificationStatus: 'verified',
+        accountHolderName: '',
+        bankName: '',
+        accountNumber: '',
+        ifscCode: '',
+        verificationStatus: 'pending',
       };
     },
     update: async (data: Partial<BankAccount>): Promise<BankAccount> => {
       await delay();
-      return {
+      const updated = applyMockOnboardingUpdate({ bankDetails: data as Record<string, unknown> });
+      return updated.bankDetails ?? {
         accountHolderName: data.accountHolderName ?? '',
         bankName: data.bankName ?? '',
         accountNumber: data.accountNumber ?? '',
@@ -993,23 +1171,40 @@ export const mockApi = {
   staff: {
     list: async (): Promise<StaffMember[]> => {
       await delay();
-      return [
-        {
-          id: 'st1',
-          name: 'Priya Singh',
-          email: 'priya@example.com',
-          phone: '+919876543212',
-          role: 'order_manager',
-          storeId: 's1',
-          permissions: {
-            manageOrders: true,
-            manageProducts: false,
-            manageInventory: false,
-            viewEarnings: false,
-          },
-          createdAt: new Date().toISOString(),
-        },
-      ];
+      return [...mockStaffMembers];
+    },
+    create: async (data: {
+      name: string;
+      email: string;
+      phone: string;
+      role: StaffMember['role'];
+      storeId?: string;
+    }): Promise<StaffMember> => {
+      await delay();
+      const permissions =
+        data.role === 'store_manager'
+          ? { manageOrders: true, manageProducts: true, manageInventory: true, viewEarnings: true }
+          : data.role === 'order_manager'
+            ? { manageOrders: true, manageProducts: false, manageInventory: false, viewEarnings: false }
+            : { manageOrders: false, manageProducts: false, manageInventory: true, viewEarnings: false };
+
+      const member: StaffMember = {
+        id: `st-${Date.now()}`,
+        name: data.name,
+        email: data.email,
+        phone: data.phone,
+        role: data.role,
+        storeId: data.storeId ?? 's1',
+        permissions,
+        createdAt: new Date().toISOString(),
+      };
+      mockStaffMembers = [member, ...mockStaffMembers];
+      return member;
+    },
+    delete: async (id: string) => {
+      await delay(200);
+      mockStaffMembers = mockStaffMembers.filter((member) => member.id !== id);
+      return { success: true };
     },
   },
 
@@ -1056,12 +1251,18 @@ export const mockApi = {
         {
           id: 'b1',
           title: 'Festival Campaign 🎉',
+          imageUrl: 'https://picsum.photos/seed/store-banner-1/800/300',
+          placement: 'HOME_TOP',
+          sortOrder: 0,
           description: 'Boost your sales this festive season with special offers',
           type: 'campaign',
         },
         {
           id: 'b2',
           title: 'Commission Update',
+          imageUrl: 'https://picsum.photos/seed/store-banner-2/800/300',
+          placement: 'HOME_MIDDLE',
+          sortOrder: 1,
           description: 'New commission structure effective from Oct 1',
           type: 'commission',
         },

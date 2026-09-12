@@ -7,22 +7,25 @@ import { ScreenWrapper } from '@/components/layout/ScreenWrapper';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { useActiveStoreId } from '@/hooks/useActiveStoreId';
 import { inventoryService } from '@/services/api';
 import { colors, radius, spacing, typography } from '@/theme';
 
 export default function InventoryScreen() {
   const queryClient = useQueryClient();
   const [quantities, setQuantities] = useState<Record<string, number>>({});
+  const { storeId, isReady, activeStore } = useActiveStoreId();
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['inventory'],
-    queryFn: inventoryService.list,
+    queryKey: ['inventory', storeId],
+    queryFn: () => inventoryService.list(storeId),
+    enabled: isReady,
   });
 
   const updateMutation = useMutation({
     mutationFn: ({ productId, quantity }: { productId: string; quantity: number }) =>
-      inventoryService.updateStock(productId, quantity),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['inventory'] }),
+      inventoryService.updateStock(productId, quantity, storeId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['inventory', storeId] }),
   });
 
   function getQty(item: NonNullable<typeof data>[0]) {
@@ -49,6 +52,7 @@ export default function InventoryScreen() {
     <>
       <Stack.Screen options={{ title: 'Inventory' }} />
       <ScreenWrapper scroll={false}>
+        {activeStore && <Text style={styles.storeLabel}>{activeStore.name}</Text>}
         {!data?.length ? (
           <EmptyState icon="cube-outline" title="No Inventory" message="Add products to manage inventory." />
         ) : (
@@ -96,6 +100,7 @@ export default function InventoryScreen() {
 }
 
 const styles = StyleSheet.create({
+  storeLabel: { ...typography.caption, color: colors.textSecondary, marginBottom: spacing.md },
   list: { paddingBottom: spacing.xxxl },
   card: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.md },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },

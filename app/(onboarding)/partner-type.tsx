@@ -27,6 +27,7 @@ const PARTNER_ICONS: Record<PartnerType, keyof typeof Ionicons.glyphMap> = {
 
 export default function PartnerTypeScreen() {
   const setPartnerType = usePartnerStore((s) => s.setPartnerType);
+  const setProfile = usePartnerStore((s) => s.setProfile);
   const currentType = usePartnerStore((s) => s.profile?.partnerType) ?? 'STORE';
   const [selectedType, setSelectedType] = useState<PartnerType>(
     SELLER_TYPES.includes(currentType) ? currentType : 'STORE'
@@ -41,10 +42,11 @@ export default function PartnerTypeScreen() {
     setPartnerType(selectedType);
     setLoading(true);
     try {
-      await onboardingService.update({
+      const profile = await onboardingService.update({
         partnerType: selectedType,
         onboardingStep: 'business_details',
       });
+      setProfile(profile);
       router.push('/(onboarding)/business-details');
     } catch {
       Alert.alert('Error', 'Could not save your selection. Please try again.');

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Text, StyleSheet, TouchableOpacity, Alert, Pressable, View } from 'react-native';
+import { Text, StyleSheet, Alert, Pressable, View } from 'react-native';
 import { router, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { ScreenWrapper } from '@/components/layout/ScreenWrapper';
@@ -18,6 +18,7 @@ import { colors, radius, spacing, typography } from '@/theme';
 
 export default function StoreDetailsScreen() {
   const setStoreDetails = usePartnerStore((s) => s.setStoreDetails);
+  const setProfile = usePartnerStore((s) => s.setProfile);
   const existing = usePartnerStore((s) => s.profile?.storeDetails);
   const businessDetails = usePartnerStore((s) => s.profile?.businessDetails);
   const authPhone = useAuthStore((s) => s.phone);
@@ -85,10 +86,11 @@ export default function StoreDetailsScreen() {
     setStoreDetails(storeDetails);
     setLoading(true);
     try {
-      await onboardingService.update({
+      const profile = await onboardingService.update({
         storeDetails,
         onboardingStep: 'kyc',
       });
+      setProfile(profile);
       router.push('/(onboarding)/kyc');
     } catch {
       Alert.alert('Error', 'Could not save store details. Please try again.');
@@ -106,11 +108,6 @@ export default function StoreDetailsScreen() {
         <Text style={styles.subtitle}>
           Set your store location and delivery area
         </Text>
-
-        <TouchableOpacity style={styles.uploadBox}>
-          <Ionicons name="camera-outline" size={32} color={colors.textMuted} />
-          <Text style={styles.uploadText}>Upload Store Logo</Text>
-        </TouchableOpacity>
 
         <Text style={styles.sectionLabel}>Store Location</Text>
         <AddressSearchInput onSelect={applyAddress} placeholder="Search store address on Google Maps..." />
@@ -186,17 +183,6 @@ const styles = StyleSheet.create({
   title: { ...typography.h1, color: colors.text, marginBottom: spacing.sm },
   subtitle: { ...typography.body, color: colors.textSecondary, marginBottom: spacing.xl },
   sectionLabel: { ...typography.h3, color: colors.text, marginBottom: spacing.md, marginTop: spacing.sm },
-  uploadBox: {
-    backgroundColor: colors.surface,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    borderStyle: 'dashed',
-    borderRadius: radius.lg,
-    padding: spacing.xl,
-    alignItems: 'center',
-    marginBottom: spacing.lg,
-  },
-  uploadText: { ...typography.bodySmall, color: colors.textMuted, marginTop: spacing.sm },
   hoursOption: {
     flexDirection: 'row',
     alignItems: 'flex-start',

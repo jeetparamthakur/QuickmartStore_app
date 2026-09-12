@@ -79,7 +79,7 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     marginBottom: spacing.sm,
   },
-  unread: { backgroundColor: '#F8FAFF' },
+  unread: { backgroundColor: colors.primaryMuted },
   iconWrap: {
     width: 40,
     height: 40,

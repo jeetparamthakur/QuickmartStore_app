@@ -7,15 +7,12 @@ import { Button } from '@/components/ui/Button';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { usePartnerStore } from '@/stores/partnerStore';
 import { partnerService } from '@/services/api';
-import { setOnboardingComplete } from '@/stores/authStore';
 import { syncOnboardingComplete } from '@/utils/syncOnboarding';
 import { colors, spacing, typography } from '@/theme';
 
 export default function PendingApprovalScreen() {
   const profile = usePartnerStore((s) => s.profile);
   const setProfile = usePartnerStore((s) => s.setProfile);
-  const setApprovalStatus = usePartnerStore((s) => s.setApprovalStatus);
-
   useFocusEffect(
     useCallback(() => {
       async function refresh() {
@@ -33,12 +30,6 @@ export default function PendingApprovalScreen() {
       refresh();
     }, [setProfile]),
   );
-
-  async function handleDemoApprove() {
-    setApprovalStatus('approved');
-    await setOnboardingComplete(true);
-    router.replace('/(app)/(tabs)');
-  }
 
   const status = profile?.approvalStatus ?? 'pending';
   const statusVariant = {
@@ -76,16 +67,6 @@ export default function PendingApprovalScreen() {
           {status === 'rejected' && (
             <Button title="Re-upload Documents" onPress={() => router.push('/(onboarding)/kyc')} fullWidth />
           )}
-
-          {__DEV__ && (
-            <Button
-              title="Continue (Demo Approved)"
-              onPress={handleDemoApprove}
-              variant="secondary"
-              fullWidth
-              style={styles.demoBtn}
-            />
-          )}
         </View>
       </ScreenWrapper>
     </>
@@ -97,5 +78,4 @@ const styles = StyleSheet.create({
   iconWrap: { marginBottom: spacing.lg },
   title: { ...typography.h2, color: colors.text, textAlign: 'center', marginTop: spacing.lg },
   message: { ...typography.body, color: colors.textSecondary, textAlign: 'center', marginTop: spacing.md },
-  demoBtn: { marginTop: spacing.xl },
 });

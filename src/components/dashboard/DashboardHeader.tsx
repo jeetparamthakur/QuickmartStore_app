@@ -3,17 +3,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, gradients, radius, shadows, spacing, typography } from '@/theme';
-import { getGreeting } from '@/utils/format';
+import { getGreeting, getInitials } from '@/utils/format';
 
 type Props = {
   name?: string;
 };
-
-function getInitials(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return name.slice(0, 2).toUpperCase();
-}
 
 export function DashboardHeader({ name = 'Partner' }: Props) {
   return (

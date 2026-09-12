@@ -7,6 +7,7 @@ import {
   Pressable,
   Platform,
   type TextInputProps,
+  type TextStyle,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, radius, spacing } from '@/theme';
@@ -111,7 +112,7 @@ const styles = StyleSheet.create({
   },
   rowFocused: {
     borderColor: colors.primary,
-    backgroundColor: '#F5F3FF',
+    backgroundColor: colors.primaryMuted,
   },
   rowError: {
     borderColor: colors.danger,
@@ -145,7 +146,7 @@ const styles = StyleSheet.create({
       ? { textAlignVertical: 'center', includeFontPadding: false }
       : {}),
     ...(Platform.OS === 'web'
-      ? { outlineStyle: 'none' as const, minWidth: 120 }
+      ? ({ outlineStyle: 'none', minWidth: 120 } as unknown as TextStyle)
       : {}),
   },
   validIcon: { paddingRight: spacing.md },

@@ -26,9 +26,9 @@ export const useAuthStore = create<AuthState>((set) => ({
   isAuthenticated: false,
 
   setTokens: async (token, refreshToken) => {
+    set({ token, refreshToken, isAuthenticated: true });
     await SecureStore.setItemAsync(TOKEN_KEY, token);
     await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, refreshToken);
-    set({ token, refreshToken, isAuthenticated: true });
   },
 
   setPhone: async (phone) => {

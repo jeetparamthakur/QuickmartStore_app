@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Seller Partner",
+    "name": "Quickmart Store",
     "slug": "Me2",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -35,6 +35,7 @@
     "plugins": [
       "expo-dev-client",
       "expo-router",
+      "expo-audio",
       "expo-font",
       "expo-secure-store",
       "expo-image",
@@ -42,20 +43,20 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Allow Seller Partner to use your location for store setup."
+          "locationAlwaysAndWhenInUsePermission": "Allow Quickmart Store to use your location for store setup."
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow Seller Partner to access photos for product and KYC uploads."
+          "photosPermission": "Allow Quickmart Store to access photos for product and KYC uploads."
         }
       ],
       [
         "expo-notifications",
         {
           "icon": "./assets/icon.png",
-          "color": "#F97316"
+          "color": "#2E7D32"
         }
       ]
     ],

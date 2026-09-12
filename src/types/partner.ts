@@ -1,3 +1,5 @@
+import type { BankAccount } from '@/types/index';
+
 export type PartnerType = 'STORE' | 'INDEPENDENT_SELLER' | 'BRAND' | 'DARK_STORE';
 
 export type OnboardingStep =
@@ -73,7 +75,7 @@ export type SellerSetup = {
   latitude?: number;
   longitude?: number;
   deliveryRadius: number;
-  productCategory: string;
+  productCategory?: string;
   deliveryPreference: string;
 };
 
@@ -83,6 +85,7 @@ export type PartnerProfile = {
   businessDetails?: BusinessDetails;
   storeDetails?: StoreDetails;
   sellerSetup?: SellerSetup;
+  bankDetails?: BankAccount;
   approvalStatus: ApprovalStatus;
   onboardingStep: OnboardingStep;
   isStoreOpen: boolean;

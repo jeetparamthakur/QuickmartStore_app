@@ -7,7 +7,7 @@ import type {
   SellerSetup,
   StoreDetails,
 } from '@/types/partner';
-import type { KycInfo } from '@/types/index';
+import type { BankAccount, KycInfo } from '@/types/index';
 
 type SellerMeResponse = {
   id: string;
@@ -19,22 +19,77 @@ type SellerMeResponse = {
   businessDetails?: BusinessDetails;
   storeDetails?: StoreDetails;
   sellerSetup?: SellerSetup;
+  bankDetails?: BankAccount;
   kyc?: KycInfo;
 };
 
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  return value as Record<string, unknown>;
+}
+
+function mapBankDetails(value: unknown): BankAccount | undefined {
+  const d = asRecord(value);
+  if (!d) return undefined;
+
+  const accountHolderName = String(d.accountHolderName ?? d.account_holder_name ?? '').trim();
+  const bankName = String(d.bankName ?? d.bank_name ?? '').trim();
+  const accountNumber = String(d.accountNumber ?? d.account_number ?? '').trim();
+  const ifscCode = String(d.ifscCode ?? d.ifsc_code ?? '').trim();
+  const rawStatus = String(d.verificationStatus ?? d.verification_status ?? 'pending');
+
+  if (!accountHolderName && !bankName && !accountNumber && !ifscCode) {
+    return undefined;
+  }
+
+  const verificationStatus =
+    rawStatus === 'verified' || rawStatus === 'failed' || rawStatus === 'pending'
+      ? rawStatus
+      : 'pending';
+
+  return {
+    accountHolderName,
+    bankName,
+    accountNumber,
+    ifscCode,
+    verificationStatus,
+  };
+}
+
 export function mapPartnerProfile(data: unknown): PartnerProfile {
   const d = (data ?? {}) as SellerMeResponse;
+  const businessDetails = d.businessDetails;
+
   return {
     id: String(d.id ?? 'unknown'),
-    name: String(d.name ?? ''),
+    name: String(d.name ?? businessDetails?.fullName ?? ''),
     partnerType: d.partnerType ?? 'STORE',
     approvalStatus: d.approvalStatus ?? 'pending',
     onboardingStep: d.onboardingStep ?? 'partner_type',
     isStoreOpen: d.isStoreOpen ?? true,
-    businessDetails: d.businessDetails,
+    businessDetails,
     storeDetails: d.storeDetails,
     sellerSetup: d.sellerSetup,
+    bankDetails: mapBankDetails(d.bankDetails),
   };
+}
+
+/** Keep app access when a settings update returns stale onboarding state from the API. */
+export function preservePartnerAccess(
+  current: PartnerProfile | null | undefined,
+  updated: PartnerProfile,
+): PartnerProfile {
+  if (
+    current?.onboardingStep === 'completed' &&
+    current.approvalStatus === 'approved'
+  ) {
+    return {
+      ...updated,
+      onboardingStep: 'completed',
+      approvalStatus: 'approved',
+    };
+  }
+  return updated;
 }
 
 export function getPostAuthRoute(profile: PartnerProfile): string {

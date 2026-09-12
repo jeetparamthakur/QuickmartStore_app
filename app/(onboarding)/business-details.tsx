@@ -14,6 +14,7 @@ import { colors, spacing, typography } from '@/theme';
 
 export default function BusinessDetailsScreen() {
   const setBusinessDetails = usePartnerStore((s) => s.setBusinessDetails);
+  const setProfile = usePartnerStore((s) => s.setProfile);
   const existing = usePartnerStore((s) => s.profile?.businessDetails);
   const partnerType = usePartnerStore((s) => s.profile?.partnerType);
   const authPhone = useAuthStore((s) => s.phone);
@@ -26,7 +27,7 @@ export default function BusinessDetailsScreen() {
     storeName: existing?.storeName ?? '',
     businessName: existing?.businessName ?? '',
     businessType: existing?.businessType ?? '',
-    mobile: existing?.mobile ?? '',
+    mobile: existing?.mobile ?? authPhone ?? '',
     email: existing?.email ?? '',
     description: existing?.description ?? '',
     gstNumber: existing?.gstNumber ?? '',
@@ -68,10 +69,11 @@ export default function BusinessDetailsScreen() {
       setBusinessDetails(details);
       setLoading(true);
       try {
-        await onboardingService.update({
+        const profile = await onboardingService.update({
           businessDetails: details,
           onboardingStep: 'store_details',
         });
+        setProfile(profile);
         router.push('/(onboarding)/store-details');
       } catch {
         Alert.alert('Error', 'Could not save business details. Please try again.');
@@ -92,10 +94,11 @@ export default function BusinessDetailsScreen() {
       setBusinessDetails(details);
       setLoading(true);
       try {
-        await onboardingService.update({
+        const profile = await onboardingService.update({
           businessDetails: details,
           onboardingStep: 'seller_setup',
         });
+        setProfile(profile);
         router.push('/(onboarding)/seller-setup');
       } catch {
         Alert.alert('Error', 'Could not save business details. Please try again.');

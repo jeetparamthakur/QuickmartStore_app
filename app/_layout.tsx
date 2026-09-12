@@ -14,6 +14,7 @@ import {
   setRefreshTokenGetter,
 } from '@/services/api/client';
 import { configService } from '@/services/api';
+import { AppDialogHost } from '@/components/ui/AppDialogHost';
 import { colors } from '@/theme';
 
 SplashScreen.preventAutoHideAsync();
@@ -32,9 +33,9 @@ export default function RootLayout() {
   useEffect(() => {
     setAuthTokenGetter(() => useAuthStore.getState().token);
     setRefreshTokenGetter(() => useAuthStore.getState().refreshToken);
-    setOnTokensRefreshed((token, refreshToken) => {
-      void useAuthStore.getState().setTokens(token, refreshToken);
-    });
+    setOnTokensRefreshed((token, refreshToken) =>
+      useAuthStore.getState().setTokens(token, refreshToken),
+    );
     setOnUnauthorized(() => logout());
   }, [logout]);
 
@@ -63,6 +64,7 @@ export default function RootLayout() {
             <Stack.Screen name="(onboarding)" />
             <Stack.Screen name="(app)" />
           </Stack>
+          <AppDialogHost />
         </BottomSheetModalProvider>
       </QueryClientProvider>
     </GestureHandlerRootView>

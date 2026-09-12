@@ -31,17 +31,23 @@ export default function AppLayout() {
       <Stack.Screen name="products/[id]" options={{ headerShown: true, title: 'Product Details' }} />
       <Stack.Screen name="inventory/index" options={{ headerShown: true, title: 'Inventory' }} />
       <Stack.Screen name="stores/index" options={{ headerShown: true, title: 'My Stores' }} />
+      <Stack.Screen name="stores/add" options={{ headerShown: true, title: 'Add New Store' }} />
       <Stack.Screen name="stores/[id]" options={{ headerShown: true, title: 'Store Details' }} />
       <Stack.Screen name="stores/[id]/categories/index" options={{ headerShown: true, title: 'Product Categories' }} />
       <Stack.Screen name="stores/[id]/categories/add" options={{ headerShown: true, title: 'Add Category' }} />
       <Stack.Screen name="stores/edit-location" options={{ headerShown: true, title: 'Edit Location' }} />
       <Stack.Screen name="stores/edit-delivery-partner" options={{ headerShown: true, title: 'Delivery Partner Settings' }} />
       <Stack.Screen name="staff/index" options={{ headerShown: true, title: 'Staff Management' }} />
+      <Stack.Screen name="staff/add" options={{ headerShown: true, title: 'Add Staff Member' }} />
       <Stack.Screen name="analytics/index" options={{ headerShown: true, title: 'Analytics' }} />
       <Stack.Screen name="payouts/index" options={{ headerShown: true, title: 'Payouts' }} />
       <Stack.Screen name="notifications/index" options={{ headerShown: true, title: 'Notifications' }} />
       <Stack.Screen name="support/index" options={{ headerShown: true, title: 'Help & Support' }} />
       <Stack.Screen name="settings/index" options={{ headerShown: true, title: 'Settings' }} />
+      <Stack.Screen name="settings/personal" options={{ headerShown: true, title: 'Personal Information' }} />
+      <Stack.Screen name="settings/business" options={{ headerShown: true, title: 'Business Information' }} />
+      <Stack.Screen name="settings/bank" options={{ headerShown: true, title: 'Bank Details' }} />
+      <Stack.Screen name="settings/product-visibility" options={{ headerShown: true, title: 'Product Visibility' }} />
       </Stack>
     </>
   );

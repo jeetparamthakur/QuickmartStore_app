@@ -232,7 +232,7 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.lg },
   orderNum: { ...typography.h2, color: colors.text },
   timerCard: {
-    backgroundColor: '#FEF3C7',
+    backgroundColor: colors.warningLight,
     borderRadius: radius.lg,
     padding: spacing.lg,
     alignItems: 'center',
@@ -241,12 +241,12 @@ const styles = StyleSheet.create({
   timerLabel: { ...typography.bodySmall, color: colors.warning },
   timerValue: { ...typography.display, color: colors.warning, fontVariant: ['tabular-nums'] },
   deliveryCard: {
-    backgroundColor: '#EFF6FF',
+    backgroundColor: colors.primaryMuted,
     borderRadius: radius.lg,
     padding: spacing.lg,
     marginBottom: spacing.lg,
     borderWidth: 1,
-    borderColor: '#BFDBFE',
+    borderColor: colors.border,
   },
   deliveryCardTitle: { ...typography.bodyMedium, color: colors.text, marginBottom: spacing.xs },
   deliveryCardStatus: { ...typography.body, color: colors.primary, fontWeight: '600' },

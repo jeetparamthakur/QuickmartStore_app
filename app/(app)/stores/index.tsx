@@ -1,6 +1,6 @@
 import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
 import { router, Stack } from 'expo-router';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { ScreenWrapper } from '@/components/layout/ScreenWrapper';
 import { StoreCard } from '@/components/cards/StoreCard';
@@ -13,6 +13,7 @@ import { useEffect } from 'react';
 
 export default function StoresScreen() {
   const multiStoreEnabled = useFeatureFlag('multi_store_enabled');
+  const queryClient = useQueryClient();
   const { stores, activeStoreId, setStores, setActiveStore } = useStoreSwitcherStore();
 
   const { data } = useQuery({
@@ -41,8 +42,9 @@ export default function StoresScreen() {
               <StoreCard
                 store={item}
                 selected={item.id === activeStoreId}
-                onPress={() => {
-                  setActiveStore(item.id);
+                onPress={async () => {
+                  await setActiveStore(item.id);
+                  await queryClient.invalidateQueries();
                   router.push(`/(app)/stores/${item.id}`);
                 }}
               />
@@ -50,8 +52,11 @@ export default function StoresScreen() {
           />
         )}
 
-        {multiStoreEnabled && (
-          <TouchableOpacity style={styles.addBtn}>
+        {(multiStoreEnabled || !stores.length) && (
+          <TouchableOpacity
+            style={styles.addBtn}
+            onPress={() => router.push('/(app)/stores/add')}
+          >
             <Ionicons name="add-circle-outline" size={22} color={colors.primary} />
             <Text style={styles.addText}>Add New Store</Text>
           </TouchableOpacity>

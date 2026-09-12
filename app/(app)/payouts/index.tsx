@@ -6,6 +6,7 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { EarningsCard } from '@/components/cards/EarningsCard';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { earningsService } from '@/services/api';
+import { useActiveStoreId } from '@/hooks/useActiveStoreId';
 import { formatCurrency } from '@/utils/format';
 import { colors, radius, spacing, typography } from '@/theme';
 import type { PayoutStatus } from '@/types/index';
@@ -17,9 +18,12 @@ const payoutVariant: Record<PayoutStatus, 'success' | 'warning' | 'danger'> = {
 };
 
 export default function PayoutsScreen() {
+  const { storeId, isReady } = useActiveStoreId();
+
   const { data: summary } = useQuery({
-    queryKey: ['earnings-summary'],
-    queryFn: earningsService.getSummary,
+    queryKey: ['earnings-summary', storeId],
+    queryFn: () => earningsService.getSummary(storeId),
+    enabled: isReady,
   });
 
   const { data: payouts } = useQuery({

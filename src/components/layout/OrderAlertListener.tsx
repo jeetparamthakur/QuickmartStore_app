@@ -1,10 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { Modal, View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useAudioPlayer } from 'expo-audio';
 import { useQuery } from '@tanstack/react-query';
 import { ordersService } from '@/services/api';
+import { useActiveStoreId } from '@/hooks/useActiveStoreId';
 import { formatCurrency } from '@/utils/format';
 import { colors, radius, spacing, typography } from '@/theme';
+
+const ALERT_SOUND_URI = 'https://actions.google.com/sounds/v1/alarms/beep_short.ogg';
 
 type Props = {
   enabled?: boolean;
@@ -14,6 +18,8 @@ export function OrderAlertListener({ enabled = true }: Props) {
   const seenIds = useRef<Set<string>>(new Set());
   const initialized = useRef(false);
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const player = useAudioPlayer(ALERT_SOUND_URI);
+  const { storeId, isReady } = useActiveStoreId();
   const [alertOrder, setAlertOrder] = useState<{
     id: string;
     orderNumber: string;
@@ -21,10 +27,10 @@ export function OrderAlertListener({ enabled = true }: Props) {
   } | null>(null);
 
   const { data: newOrders } = useQuery({
-    queryKey: ['orders', 'new'],
-    queryFn: () => ordersService.list('new'),
-    refetchInterval: enabled ? 15000 : false,
-    enabled,
+    queryKey: ['orders', 'new', storeId],
+    queryFn: () => ordersService.list('new', storeId),
+    refetchInterval: enabled && isReady ? 15000 : false,
+    enabled: enabled && isReady,
   });
 
   useEffect(() => {
@@ -62,12 +68,8 @@ export function OrderAlertListener({ enabled = true }: Props) {
 
   async function playAlertSound() {
     try {
-      const { Audio } = await import('expo-av');
-      const { sound } = await Audio.Sound.createAsync(
-        { uri: 'https://actions.google.com/sounds/v1/alarms/beep_short.ogg' },
-        { shouldPlay: true }
-      );
-      setTimeout(() => sound.unloadAsync(), 2000);
+      await player.seekTo(0);
+      player.play();
     } catch {
       // sound optional
     }

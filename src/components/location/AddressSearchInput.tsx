@@ -1,6 +1,14 @@
-import { View, Text, StyleSheet } from 'react-native';
-import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
-import { GOOGLE_MAPS_API_KEY, hasGoogleMapsKey, parseAddressComponents } from '@/utils/address';
+import { useEffect, useRef, useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  ActivityIndicator,
+  FlatList,
+} from 'react-native';
+import { photonSearchAddresses } from '@/services/geocoding';
 import type { AddressResult } from '@/utils/address';
 import { colors, radius, spacing, typography } from '@/theme';
 
@@ -10,57 +18,89 @@ type Props = {
   label?: string;
 };
 
+const DEBOUNCE_MS = 350;
+
 export function AddressSearchInput({
   onSelect,
-  placeholder = 'Search address on Google Maps...',
+  placeholder = 'Search address in India...',
   label = 'Search Address',
 }: Props) {
-  if (!hasGoogleMapsKey()) {
-    return (
-      <View style={styles.fallback}>
-        <Text style={styles.fallbackLabel}>{label}</Text>
-        <Text style={styles.fallbackHint}>
-          Add EXPO_PUBLIC_GOOGLE_MAPS_API_KEY to enable Google Places search. You can still enter address manually below.
-        </Text>
-      </View>
-    );
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<AddressResult[]>([]);
+  const [loading, setLoading] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+
+    const trimmed = query.trim();
+    if (trimmed.length < 3) {
+      setResults([]);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    timerRef.current = setTimeout(async () => {
+      try {
+        const matches = await photonSearchAddresses(trimmed);
+        setResults(matches);
+      } catch {
+        setResults([]);
+      } finally {
+        setLoading(false);
+      }
+    }, DEBOUNCE_MS);
+
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [query]);
+
+  function handleSelect(result: AddressResult) {
+    setQuery(result.addressLine);
+    setResults([]);
+    onSelect(result);
   }
 
   return (
     <View style={styles.container}>
       <Text style={styles.label}>{label}</Text>
-      <GooglePlacesAutocomplete
+      <TextInput
+        value={query}
+        onChangeText={setQuery}
         placeholder={placeholder}
-        fetchDetails
-        onPress={(_data, details) => {
-          if (!details?.geometry?.location) return;
-          const lat = details.geometry.location.lat;
-          const lng = details.geometry.location.lng;
-          const result = parseAddressComponents(
-            details.address_components ?? [],
-            details.formatted_address ?? _data.description,
-            lat,
-            lng
-          );
-          onSelect(result);
-        }}
-        query={{
-          key: GOOGLE_MAPS_API_KEY,
-          language: 'en',
-          components: 'country:in',
-        }}
-        enablePoweredByContainer={false}
-        styles={{
-          container: styles.autocompleteContainer,
-          textInput: styles.textInput,
-          listView: styles.listView,
-          row: styles.row,
-          description: styles.description,
-        }}
-        textInputProps={{
-          placeholderTextColor: colors.textMuted,
-        }}
+        placeholderTextColor={colors.textMuted}
+        style={styles.input}
+        autoCorrect={false}
       />
+      {loading && (
+        <View style={styles.loadingRow}>
+          <ActivityIndicator size="small" color={colors.primary} />
+          <Text style={styles.loadingText}>Searching OpenStreetMap...</Text>
+        </View>
+      )}
+      {!loading && results.length > 0 && (
+        <FlatList
+          data={results}
+          keyExtractor={(item, index) => `${item.latitude}-${item.longitude}-${index}`}
+          keyboardShouldPersistTaps="handled"
+          style={styles.list}
+          renderItem={({ item }) => (
+            <TouchableOpacity style={styles.row} onPress={() => handleSelect(item)}>
+              <Text style={styles.rowTitle} numberOfLines={2}>
+                {item.addressLine || [item.area, item.city].filter(Boolean).join(', ')}
+              </Text>
+              {(item.city || item.pincode) && (
+                <Text style={styles.rowMeta}>
+                  {[item.city, item.pincode].filter(Boolean).join(' • ')}
+                </Text>
+              )}
+            </TouchableOpacity>
+          )}
+        />
+      )}
+      <Text style={styles.attribution}>Address search powered by OpenStreetMap</Text>
     </View>
   );
 }
@@ -68,8 +108,7 @@ export function AddressSearchInput({
 const styles = StyleSheet.create({
   container: { marginBottom: spacing.lg, zIndex: 10 },
   label: { ...typography.label, color: colors.text, marginBottom: spacing.sm },
-  autocompleteContainer: { flex: 0 },
-  textInput: {
+  input: {
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
@@ -78,18 +117,34 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     ...typography.body,
     color: colors.text,
-    height: 50,
+    minHeight: 50,
   },
-  listView: {
+  loadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  loadingText: { ...typography.caption, color: colors.textMuted },
+  list: {
+    maxHeight: 220,
+    marginTop: spacing.sm,
     backgroundColor: colors.surface,
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.border,
+  },
+  row: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  rowTitle: { ...typography.bodySmall, color: colors.text },
+  rowMeta: { ...typography.caption, color: colors.textMuted, marginTop: spacing.xs },
+  attribution: {
+    ...typography.caption,
+    color: colors.textMuted,
     marginTop: spacing.xs,
   },
-  row: { padding: spacing.md },
-  description: { ...typography.bodySmall, color: colors.text },
-  fallback: { marginBottom: spacing.lg },
-  fallbackLabel: { ...typography.label, color: colors.text, marginBottom: spacing.xs },
-  fallbackHint: { ...typography.caption, color: colors.textMuted },
 });

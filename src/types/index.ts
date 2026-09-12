@@ -38,6 +38,17 @@ export type EarningsSummary = {
   week: number;
   month: number;
   total: number;
+  grossTotal?: number;
+  commissionTotal?: number;
+  commissionRate?: number | null;
+  commissionType?: 'PERCENTAGE' | 'FIXED' | null;
+  commissionLabel?: string | null;
+  scheduledCommission?: {
+    rate: number;
+    type: 'PERCENTAGE' | 'FIXED';
+    effectiveFrom: string;
+    ruleName: string;
+  } | null;
   pendingSettlement: number;
   availableBalance: number;
   nextSettlement: number;
@@ -78,13 +89,17 @@ export type AppNotification = {
   data?: Record<string, string>;
 };
 
+export type BannerPlacement = 'HOME_TOP' | 'HOME_MIDDLE' | 'CATEGORY';
+
 export type Banner = {
   id: string;
   title: string;
-  description: string;
-  imageUrl?: string;
-  actionUrl?: string;
-  type: 'campaign' | 'policy' | 'commission' | 'offer' | 'training';
+  imageUrl: string;
+  linkUrl?: string;
+  placement: BannerPlacement;
+  sortOrder: number;
+  description?: string;
+  type?: 'campaign' | 'policy' | 'commission' | 'offer' | 'training';
 };
 
 export type SupportTicketStatus = 'open' | 'in_progress' | 'resolved';

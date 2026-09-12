@@ -12,7 +12,7 @@
     "babel-preset-expo": "~57.0.0",
     "date-fns": "^4.4.0",
     "expo": "~57.0.18",
-    "expo-av": "^16.0.8",
+    "expo-audio": "~57.0.4",
     "expo-constants": "~57.0.16",
     "expo-dev-client": "~57.0.18",
     "expo-file-system": "~57.0.6",
@@ -52,11 +52,13 @@
     "start": "expo start",
     "start:clear": "expo start -c",
     "start:phone": "expo start --dev-client --lan",
-    "android": "expo start --android",
+    "android": "expo run:android",
     "dev:android": "expo run:android --device",
     "ios": "expo run:ios",
     "dev:ios": "expo run:ios --device",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "build:apk": "expo prebuild --platform android --clean && cd android && ./gradlew assembleRelease",
+    "build:apk:copy": "mkdir -p dist && cp android/app/build/outputs/apk/release/app-release.apk dist/quickmart-store-preview.apk"
   },
   "private": true
 }

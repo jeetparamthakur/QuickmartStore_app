@@ -87,14 +87,14 @@ export default function LoginScreen() {
 
             <View style={styles.logoWrap}>
               <View style={styles.logo}>
-                <Text style={styles.logoText}>M</Text>
+                <Text style={styles.logoText}>Q</Text>
               </View>
               <View style={styles.logoBadge}>
                 <Ionicons name="shield-checkmark" size={14} color={colors.primary} />
               </View>
             </View>
 
-            <Text style={styles.heroTitle}>Me2 Partner</Text>
+            <Text style={styles.heroTitle}>Quickmart Store</Text>
             <Text style={styles.heroSubtitle}>Register and manage your business from one place</Text>
 
             <View style={styles.featureRow}>
@@ -286,7 +286,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.xl,
     padding: spacing.xl,
     zIndex: 10,
-    elevation: 10,
     ...shadows.lg,
     borderWidth: 1,
     borderColor: colors.border,

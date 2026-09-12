@@ -1,23 +1,49 @@
 import { View, Text, StyleSheet } from 'react-native';
 import { useLocalSearchParams, router, Stack } from 'expo-router';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ScreenWrapper } from '@/components/layout/ScreenWrapper';
 import { Button } from '@/components/ui/Button';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { productsService } from '@/services/api';
+import { useActiveStoreId } from '@/hooks/useActiveStoreId';
+import { appAlert } from '@/utils/appDialog';
 import { formatCurrency } from '@/utils/format';
 import { formatPackageSize, formatRateLabel } from '@/utils/pricing';
 import { colors, radius, spacing, typography } from '@/theme';
 
 export default function ProductDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const queryClient = useQueryClient();
+  const { storeId } = useActiveStoreId();
 
   const { data: product, isLoading } = useQuery({
     queryKey: ['product', id],
-    queryFn: () => productsService.get(id!),
+    queryFn: () => productsService.get(id!, storeId ?? undefined),
     enabled: !!id,
   });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => productsService.delete(id!, storeId ?? undefined),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      router.back();
+    },
+    onError: () => appAlert('Error', 'Could not delete product. Please try again.'),
+  });
+
+  function confirmDelete() {
+    if (!product) return;
+    appAlert(
+      'Delete Product',
+      `Remove "${product.name}" from your catalog? This action cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: () => deleteMutation.mutate() },
+      ],
+    );
+  }
 
   if (isLoading) {
     return (
@@ -107,6 +133,15 @@ export default function ProductDetailScreen() {
             <Button title="Edit & Resubmit" onPress={() => router.push('/(app)/products/add')} fullWidth />
           </View>
         )}
+
+        <Button
+          title="Delete Product"
+          variant="danger"
+          onPress={confirmDelete}
+          loading={deleteMutation.isPending}
+          fullWidth
+          style={styles.deleteBtn}
+        />
       </ScreenWrapper>
     </>
   );
@@ -130,4 +165,5 @@ const styles = StyleSheet.create({
   rejectBox: { backgroundColor: colors.dangerLight, borderRadius: radius.lg, padding: spacing.lg, marginTop: spacing.lg },
   rejectTitle: { ...typography.bodyMedium, color: colors.danger, marginBottom: spacing.sm },
   rejectReason: { ...typography.bodySmall, color: colors.text, marginBottom: spacing.lg },
+  deleteBtn: { marginTop: spacing.xl },
 });

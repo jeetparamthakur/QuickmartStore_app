@@ -7,8 +7,7 @@ import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { usePartnerStore } from '@/stores/partnerStore';
-import { bankService, onboardingService, partnerService } from '@/services/api';
-import { USE_MOCK_API } from '@/services/api/client';
+import { bankService, onboardingService } from '@/services/api';
 import { colors, spacing, typography } from '@/theme';
 
 export default function BankSetupScreen() {
@@ -34,11 +33,8 @@ export default function BankSetupScreen() {
 
     setLoading(true);
     try {
-      if (USE_MOCK_API) {
-        await bankService.update(form);
-      }
-      await onboardingService.complete(form);
-      const profile = await partnerService.getProfile();
+      await bankService.update(form);
+      const profile = await onboardingService.complete(form);
       setProfile(profile);
       setOnboardingStep('pending_approval');
       router.replace('/(onboarding)/pending-approval');

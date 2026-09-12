@@ -8,6 +8,7 @@ import { SkeletonCard } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { usePartnerConfig } from '@/hooks/usePermissions';
+import { useActiveStoreId } from '@/hooks/useActiveStoreId';
 import { ordersService } from '@/services/api';
 import { ORDER_TABS, ORDER_STATUS_LABELS, type OrderStatus } from '@/types/order';
 import { getPrepTimeRemaining } from '@/utils/format';
@@ -18,10 +19,12 @@ export default function OrdersScreen() {
   const [prepTimes, setPrepTimes] = useState<Record<string, string>>({});
   const config = usePartnerConfig();
   const queryClient = useQueryClient();
+  const { storeId, isReady, activeStore } = useActiveStoreId();
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['orders', activeTab],
-    queryFn: () => ordersService.list(activeTab),
+    queryKey: ['orders', activeTab, storeId],
+    queryFn: () => ordersService.list(activeTab, storeId),
+    enabled: isReady,
   });
 
   const acceptMutation = useMutation({
@@ -63,6 +66,9 @@ export default function OrdersScreen() {
   return (
     <ScreenWrapper scroll={false} edges={['top']}>
       <Text style={styles.title}>Orders</Text>
+      {activeStore && (
+        <Text style={styles.storeLabel}>{activeStore.name}</Text>
+      )}
 
       <View style={styles.tabs}>
         {ORDER_TABS.map((tab) => (
@@ -105,7 +111,8 @@ export default function OrdersScreen() {
 }
 
 const styles = StyleSheet.create({
-  title: { ...typography.h1, color: colors.text, marginBottom: spacing.lg },
+  title: { ...typography.h1, color: colors.text, marginBottom: spacing.xs },
+  storeLabel: { ...typography.caption, color: colors.textSecondary, marginBottom: spacing.lg },
   tabs: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.lg },
   tab: {
     paddingHorizontal: spacing.md,

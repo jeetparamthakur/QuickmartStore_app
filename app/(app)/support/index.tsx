@@ -18,7 +18,7 @@ export default function SupportScreen() {
 
   const { data: faqs } = useQuery({
     queryKey: ['faqs'],
-    queryFn: supportService.getFaqs,
+    queryFn: () => supportService.getFaqs(),
   });
 
   const createTicketMutation = useMutation({
