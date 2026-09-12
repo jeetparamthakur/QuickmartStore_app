@@ -16,11 +16,12 @@ import {
 } from '@/types/partner';
 import { colors, radius, spacing, typography, shadows } from '@/theme';
 
-const SELLER_TYPES: PartnerType[] = ['STORE', 'INDEPENDENT_SELLER'];
+const SELLER_TYPES: PartnerType[] = ['STORE', 'INDEPENDENT_SELLER', 'FOOD_STORE'];
 
 const PARTNER_ICONS: Record<PartnerType, keyof typeof Ionicons.glyphMap> = {
   STORE: 'storefront-outline',
   INDEPENDENT_SELLER: 'person-outline',
+  FOOD_STORE: 'restaurant-outline',
   BRAND: 'business-outline',
   DARK_STORE: 'flash-outline',
 };
@@ -70,6 +71,7 @@ export default function PartnerTypeScreen() {
           options={[
             { value: 'STORE', label: PARTNER_TYPE_LABELS.STORE },
             { value: 'INDEPENDENT_SELLER', label: PARTNER_TYPE_LABELS.INDEPENDENT_SELLER },
+            { value: 'FOOD_STORE', label: PARTNER_TYPE_LABELS.FOOD_STORE },
           ]}
           value={selectedType}
           onChange={handleTabChange}

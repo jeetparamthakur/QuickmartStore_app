@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type {
   ApprovalStatus,
   BusinessDetails,
+  FoodSetup,
   OnboardingStep,
   PartnerProfile,
   PartnerType,
@@ -15,6 +16,7 @@ type PartnerState = {
   setBusinessDetails: (details: BusinessDetails) => void;
   setStoreDetails: (details: StoreDetails) => void;
   setSellerSetup: (setup: SellerSetup) => void;
+  setFoodSetup: (setup: FoodSetup) => void;
   setOnboardingStep: (step: OnboardingStep) => void;
   setApprovalStatus: (status: ApprovalStatus) => void;
   toggleStoreOpen: () => void;
@@ -47,13 +49,19 @@ export const usePartnerStore = create<PartnerState>((set, get) => ({
     set((s) => {
       const profile = s.profile ?? defaultProfile;
       const isStore = profile.partnerType === 'STORE';
+      const isFoodStore = profile.partnerType === 'FOOD_STORE';
+      const nextStep = isStore
+        ? 'store_details'
+        : isFoodStore
+          ? 'food_setup'
+          : 'seller_setup';
 
       return {
         profile: {
           ...profile,
           businessDetails: details,
           name: details.fullName,
-          onboardingStep: isStore ? 'store_details' : 'seller_setup',
+          onboardingStep: nextStep,
           ...(isStore && details.storeName
             ? {
                 storeDetails: {
@@ -95,6 +103,15 @@ export const usePartnerStore = create<PartnerState>((set, get) => ({
       },
     })),
 
+  setFoodSetup: (setup) =>
+    set((s) => ({
+      profile: {
+        ...(s.profile ?? defaultProfile),
+        foodSetup: setup,
+        onboardingStep: 'kyc',
+      },
+    })),
+
   setOnboardingStep: (step) =>
     set((s) => ({
       profile: s.profile ? { ...s.profile, onboardingStep: step } : null,
@@ -130,6 +147,7 @@ export function getOnboardingRoute(step: OnboardingStep): string {
     business_details: '/(onboarding)/business-details',
     store_details: '/(onboarding)/store-details',
     seller_setup: '/(onboarding)/seller-setup',
+    food_setup: '/(onboarding)/food-setup',
     kyc: '/(onboarding)/kyc',
     bank_setup: '/(onboarding)/bank-setup',
     pending_approval: '/(onboarding)/pending-approval',

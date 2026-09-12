@@ -367,3 +367,58 @@ export async function uploadMultipart<T>(
     throw networkError;
   }
 }
+
+export async function uploadImageOnly<T>(path: string, uri: string): Promise<T> {
+  const url = getApiUrl(path);
+  const token = authTokenGetter?.();
+  const startedAt = Date.now();
+
+  const formData = new FormData();
+  const file = new File(uri);
+  formData.append('file', file);
+
+  logApi('request', 'POST', url, { hasAuth: Boolean(token) });
+
+  try {
+    const response = await apiFetch(url, {
+      method: 'POST',
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: formData,
+    });
+
+    const data = await response.json().catch(() => ({}));
+    const elapsedMs = Date.now() - startedAt;
+
+    if (!response.ok) {
+      const error = new ApiError(
+        (data as { errorCode?: string }).errorCode ?? 'API_ERROR',
+        (data as { message?: string }).message ?? 'Upload failed',
+        response.status,
+      );
+      logApi('error', 'POST', url, {
+        status: response.status,
+        elapsedMs,
+        body: data,
+      });
+      throw error;
+    }
+
+    logApi('response', 'POST', url, { status: response.status, elapsedMs, body: data });
+    return data as T;
+  } catch (error) {
+    const elapsedMs = Date.now() - startedAt;
+    if (error instanceof ApiError) throw error;
+
+    const networkError = new ApiError(
+      'NETWORK_ERROR',
+      'Upload failed. Please try again.',
+    );
+    logApi('error', 'POST', url, {
+      elapsedMs,
+      message: error instanceof Error ? error.message : String(error),
+    });
+    throw networkError;
+  }
+}

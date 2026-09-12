@@ -1,12 +1,18 @@
 import type { BankAccount } from '@/types/index';
 
-export type PartnerType = 'STORE' | 'INDEPENDENT_SELLER' | 'BRAND' | 'DARK_STORE';
+export type PartnerType =
+  | 'STORE'
+  | 'INDEPENDENT_SELLER'
+  | 'FOOD_STORE'
+  | 'BRAND'
+  | 'DARK_STORE';
 
 export type OnboardingStep =
   | 'partner_type'
   | 'business_details'
   | 'store_details'
   | 'seller_setup'
+  | 'food_setup'
   | 'kyc'
   | 'bank_setup'
   | 'pending_approval'
@@ -79,12 +85,42 @@ export type SellerSetup = {
   deliveryPreference: string;
 };
 
+export type FoodItem = {
+  id: string;
+  name: string;
+  price: number;
+  description?: string;
+  isVeg: boolean;
+  prepTimeMinutes: number;
+  imageUrl?: string;
+};
+
+export type FoodSetup = {
+  name: string;
+  description: string;
+  cuisine?: string;
+  fssaiNumber?: string;
+  address: string;
+  city: string;
+  area: string;
+  pincode: string;
+  latitude?: number;
+  longitude?: number;
+  openingTime: string;
+  closingTime: string;
+  is24Hours: boolean;
+  deliveryRadius: number;
+  contactNumber: string;
+  items?: FoodItem[];
+};
+
 export type PartnerProfile = {
   id: string;
   partnerType: PartnerType;
   businessDetails?: BusinessDetails;
   storeDetails?: StoreDetails;
   sellerSetup?: SellerSetup;
+  foodSetup?: FoodSetup;
   bankDetails?: BankAccount;
   approvalStatus: ApprovalStatus;
   onboardingStep: OnboardingStep;
@@ -95,6 +131,7 @@ export type PartnerProfile = {
 export const PARTNER_TYPE_LABELS: Record<PartnerType, string> = {
   STORE: 'Build Your Store',
   INDEPENDENT_SELLER: 'Independent Seller',
+  FOOD_STORE: 'Food / Restaurant',
   BRAND: 'Brand / Business',
   DARK_STORE: 'Dark Store Partner',
 };
@@ -102,6 +139,7 @@ export const PARTNER_TYPE_LABELS: Record<PartnerType, string> = {
 export const PARTNER_TYPE_DESCRIPTIONS: Record<PartnerType, string> = {
   STORE: 'Create and manage your store with inventory, orders, and payouts in one place.',
   INDEPENDENT_SELLER: 'Sell your products independently without setting up a full store.',
+  FOOD_STORE: 'List your menu, manage food orders, and reach hungry customers nearby.',
   BRAND: 'Apne branded products multiple customers tak pahunchayein.',
   DARK_STORE: 'Fast delivery ke liye inventory-based fulfillment store operate karein.',
 };
@@ -116,6 +154,11 @@ export const PARTNER_TYPE_BENEFITS: Record<PartnerType, string[]> = {
     'List products without a physical storefront',
     'Manage orders and payouts easily',
     'Set your own pickup and service radius',
+  ],
+  FOOD_STORE: [
+    'Add your menu anytime from the dashboard',
+    'Track prep time and live orders',
+    'Set delivery radius and operating hours',
   ],
   BRAND: [],
   DARK_STORE: [],

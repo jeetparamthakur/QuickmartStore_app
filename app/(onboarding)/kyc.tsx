@@ -12,7 +12,14 @@ import { usePartnerStore } from '@/stores/partnerStore';
 import { kycService, onboardingService } from '@/services/api';
 import { ApiError } from '@/services/api/client';
 import type { KycStatus } from '@/types/index';
+import type { PartnerType } from '@/types/partner';
 import { colors, radius, spacing, typography } from '@/theme';
+
+function getPreviousStepRoute(partnerType?: PartnerType) {
+  if (partnerType === 'FOOD_STORE') return '/(onboarding)/food-setup';
+  if (partnerType === 'INDEPENDENT_SELLER') return '/(onboarding)/seller-setup';
+  return '/(onboarding)/store-details';
+}
 
 const documents = [
   { type: 'pan', label: 'PAN Card', required: true },
@@ -30,6 +37,7 @@ const STATUS_VARIANT: Record<KycStatus, 'warning' | 'info' | 'success' | 'danger
 
 export default function KycScreen() {
   const setProfile = usePartnerStore((s) => s.setProfile);
+  const partnerType = usePartnerStore((s) => s.profile?.partnerType);
   const [uploaded, setUploaded] = useState<Record<string, boolean>>({});
   const [kycStatus, setKycStatus] = useState<KycStatus>('pending');
   const [rejectionReason, setRejectionReason] = useState<string>();
@@ -82,6 +90,14 @@ export default function KycScreen() {
     }
   }
 
+  function handleBack() {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace(getPreviousStepRoute(partnerType));
+  }
+
   async function handleContinue() {
     const missing = documents.filter((d) => d.required && !uploaded[d.type]);
     if (missing.length > 0) {
@@ -106,6 +122,10 @@ export default function KycScreen() {
     <>
       <Stack.Screen options={{ title: 'KYC Verification' }} />
       <ScreenWrapper>
+        <TouchableOpacity style={styles.backRow} onPress={handleBack}>
+          <Ionicons name="arrow-back" size={20} color={colors.textSecondary} />
+          <Text style={styles.backText}>Back</Text>
+        </TouchableOpacity>
         <StepProgress currentStep={4} totalSteps={5} />
         <Text style={styles.title}>KYC & Verification</Text>
         <Text style={styles.subtitle}>
@@ -154,6 +174,14 @@ export default function KycScreen() {
 }
 
 const styles = StyleSheet.create({
+  backRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginBottom: spacing.md,
+    alignSelf: 'flex-start',
+  },
+  backText: { ...typography.bodySmall, color: colors.textSecondary },
   title: { ...typography.h1, color: colors.text, marginBottom: spacing.sm },
   subtitle: { ...typography.body, color: colors.textSecondary, marginBottom: spacing.lg },
   rejection: {

@@ -1,6 +1,7 @@
 import type {
   ApprovalStatus,
   BusinessDetails,
+  FoodSetup,
   OnboardingStep,
   PartnerProfile,
   PartnerType,
@@ -19,6 +20,7 @@ type SellerMeResponse = {
   businessDetails?: BusinessDetails;
   storeDetails?: StoreDetails;
   sellerSetup?: SellerSetup;
+  foodSetup?: FoodSetup;
   bankDetails?: BankAccount;
   kyc?: KycInfo;
 };
@@ -70,6 +72,7 @@ export function mapPartnerProfile(data: unknown): PartnerProfile {
     businessDetails,
     storeDetails: d.storeDetails,
     sellerSetup: d.sellerSetup,
+    foodSetup: d.foodSetup,
     bankDetails: mapBankDetails(d.bankDetails),
   };
 }
@@ -111,6 +114,7 @@ export function getPostAuthRoute(profile: PartnerProfile): string {
     business_details: '/(onboarding)/business-details',
     store_details: '/(onboarding)/store-details',
     seller_setup: '/(onboarding)/seller-setup',
+    food_setup: '/(onboarding)/food-setup',
     kyc: '/(onboarding)/kyc',
     bank_setup: '/(onboarding)/bank-setup',
     pending_approval: '/(onboarding)/pending-approval',

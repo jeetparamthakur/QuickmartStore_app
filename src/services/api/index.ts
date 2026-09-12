@@ -1,4 +1,4 @@
-import { USE_MOCK_API, apiClient, normalizePhone, uploadMultipart } from './client';
+import { USE_MOCK_API, apiClient, normalizePhone, uploadImageOnly, uploadMultipart } from './client';
 import { mapBackendBanner } from './mappers/banner';
 import { mockApi } from './mock';
 import { partnerService, resolvePartnerProfile } from './partnerService';
@@ -60,6 +60,7 @@ export type OnboardingUpdatePayload = {
   businessDetails?: Record<string, unknown>;
   storeDetails?: Record<string, unknown>;
   sellerSetup?: Record<string, unknown>;
+  foodSetup?: Record<string, unknown>;
   bankDetails?: Record<string, unknown>;
 };
 
@@ -81,6 +82,13 @@ export const onboardingService = {
     });
     return resolvePartnerProfile(response);
   },
+  uploadFoodImage: (uri: string) =>
+    USE_MOCK_API
+      ? mockApi.partner.uploadFoodImage(uri)
+      : uploadImageOnly<{ success: boolean; url: string }>(
+          '/seller/onboarding/food-image',
+          uri,
+        ),
 };
 
 export const ordersService = {

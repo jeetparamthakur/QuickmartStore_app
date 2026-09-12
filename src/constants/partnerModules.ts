@@ -78,6 +78,28 @@ export const partnerModules: Record<PartnerType, PartnerModuleConfig> = {
     showDeliveryPartnerSettings: false,
     simplifiedDashboard: true,
   },
+  FOOD_STORE: {
+    dashboardMetrics: [
+      { key: 'orders', label: 'Orders', icon: 'receipt' },
+      { key: 'pending', label: 'Pending', icon: 'time' },
+      { key: 'prep_time', label: 'Avg Prep Time', icon: 'timer' },
+      { key: 'earnings', label: 'Earnings', icon: 'wallet' },
+    ],
+    quickActions: [
+      { key: 'add_menu_item', label: 'Add Menu Item', icon: 'add-circle', route: '/(app)/products/add' },
+      { key: 'orders', label: 'View Orders', icon: 'list', route: '/(app)/(tabs)/orders' },
+      { key: 'store', label: 'Update Restaurant', icon: 'restaurant', route: '/(app)/stores' },
+      { key: 'earnings', label: 'View Earnings', icon: 'trending-up', route: '/(app)/(tabs)/earnings' },
+    ],
+    tabs: baseTabs,
+    showInventory: false,
+    showMultiStore: false,
+    showStaff: false,
+    showAnalytics: true,
+    showPrepTimer: true,
+    showDeliveryPartnerSettings: true,
+    simplifiedDashboard: false,
+  },
   BRAND: {
     dashboardMetrics: [
       { key: 'sales', label: "Today's Sales", icon: 'cash' },

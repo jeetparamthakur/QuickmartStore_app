@@ -23,7 +23,7 @@ type MenuSection = {
   title: string;
   items: (ProfileMenuItem & {
     permission?: keyof PartnerPermissions;
-    partnerTypes?: Array<'STORE' | 'INDEPENDENT_SELLER' | 'BRAND' | 'DARK_STORE'>;
+    partnerTypes?: Array<'STORE' | 'INDEPENDENT_SELLER' | 'FOOD_STORE' | 'BRAND' | 'DARK_STORE'>;
   })[];
 };
 

@@ -24,6 +24,7 @@ function loadDotEnv(file) {
 loadDotEnv('.env');
 
 const mapsKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ?? '';
+const useGoogleMaps = process.env.EXPO_PUBLIC_USE_GOOGLE_MAPS === 'true' && mapsKey.length > 0;
 
 module.exports = ({ config }) => ({
   ...config,
@@ -31,21 +32,26 @@ module.exports = ({ config }) => ({
     ...config.android,
     config: {
       ...config.android?.config,
-      googleMaps: {
-        apiKey: mapsKey,
-      },
+      ...(useGoogleMaps
+        ? {
+            googleMaps: {
+              apiKey: mapsKey,
+            },
+          }
+        : {}),
     },
   },
   ios: {
     ...config.ios,
     config: {
       ...config.ios?.config,
-      googleMapsApiKey: mapsKey,
+      ...(useGoogleMaps ? { googleMapsApiKey: mapsKey } : {}),
     },
   },
   plugins: [
     ...(config.plugins ?? []),
-    ...(mapsKey
+    '@maplibre/maplibre-react-native',
+    ...(useGoogleMaps
       ? [
           [
             'react-native-maps',

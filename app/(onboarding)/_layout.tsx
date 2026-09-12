@@ -9,6 +9,7 @@ const stepMap: Record<string, number> = {
   'business-details': 2,
   'store-details': 3,
   'seller-setup': 3,
+  'food-setup': 3,
   kyc: 4,
   'bank-setup': 5,
 };

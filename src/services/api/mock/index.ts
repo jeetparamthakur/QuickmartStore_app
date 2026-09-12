@@ -44,6 +44,7 @@ type MockOnboardingUpdate = {
   businessDetails?: Record<string, unknown>;
   storeDetails?: Record<string, unknown>;
   sellerSetup?: Record<string, unknown>;
+  foodSetup?: Record<string, unknown>;
   bankDetails?: Record<string, unknown>;
 };
 
@@ -113,6 +114,26 @@ function applyMockOnboardingUpdate(data: MockOnboardingUpdate): PartnerProfile {
         deliveryPreference: 'platform',
       }),
       ...(data.sellerSetup as PartnerProfile['sellerSetup']),
+    };
+  }
+
+  if (data.foodSetup) {
+    sessionProfile.foodSetup = {
+      ...(sessionProfile.foodSetup ?? {
+        name: '',
+        description: '',
+        address: '',
+        city: '',
+        area: '',
+        pincode: '',
+        openingTime: '08:00',
+        closingTime: '22:00',
+        is24Hours: false,
+        deliveryRadius: 5,
+        contactNumber: '',
+        items: [],
+      }),
+      ...(data.foodSetup as PartnerProfile['foodSetup']),
     };
   }
 
@@ -628,6 +649,10 @@ export const mockApi = {
       sessionProfile.onboardingStep = 'pending_approval';
       sessionProfile.approvalStatus = 'under_review';
       return { ...sessionProfile };
+    },
+    uploadFoodImage: async (uri: string) => {
+      await delay();
+      return { success: true, url: uri };
     },
     resetSession: () => {
       sessionProfile = createEmptySessionProfile();

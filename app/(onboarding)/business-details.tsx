@@ -21,6 +21,7 @@ export default function BusinessDetailsScreen() {
   const [loading, setLoading] = useState(false);
 
   const isStore = partnerType === 'STORE';
+  const isFoodStore = partnerType === 'FOOD_STORE';
 
   const [form, setForm] = useState({
     fullName: existing?.fullName ?? '',
@@ -80,6 +81,48 @@ export default function BusinessDetailsScreen() {
       } finally {
         setLoading(false);
       }
+    } else if (isFoodStore) {
+      if (!form.fullName.trim() || !form.businessName.trim() || !form.email.trim()) {
+        Alert.alert('Required', 'Please fill in all required fields');
+        return;
+      }
+      if (!validateEmail(form.email)) {
+        Alert.alert('Invalid Email', 'Please enter a valid email address');
+        return;
+      }
+      if (!form.panNumber.trim()) {
+        Alert.alert('Required', 'PAN number is required');
+        return;
+      }
+      if (!validatePanFormat(form.panNumber)) {
+        Alert.alert('Invalid PAN', 'Please enter a valid PAN number (e.g. ABCDE1234F)');
+        return;
+      }
+
+      const details: BusinessDetails = {
+        fullName: form.fullName.trim(),
+        businessName: form.businessName.trim(),
+        businessType: form.businessType.trim() || 'Food / Restaurant',
+        mobile: form.mobile.trim() || authPhone || '',
+        email: form.email.trim(),
+        description: form.description.trim(),
+        panNumber: form.panNumber.trim().toUpperCase(),
+        gstNumber: form.gstNumber.trim() || undefined,
+      };
+      setBusinessDetails(details);
+      setLoading(true);
+      try {
+        const profile = await onboardingService.update({
+          businessDetails: details,
+          onboardingStep: 'food_setup',
+        });
+        setProfile(profile);
+        router.push('/(onboarding)/food-setup');
+      } catch {
+        Alert.alert('Error', 'Could not save business details. Please try again.');
+      } finally {
+        setLoading(false);
+      }
     } else {
       const details: BusinessDetails = {
         fullName: form.fullName.trim(),
@@ -106,6 +149,50 @@ export default function BusinessDetailsScreen() {
         setLoading(false);
       }
     }
+  }
+
+  if (isFoodStore) {
+    return (
+      <>
+        <Stack.Screen options={{ title: 'Restaurant Details' }} />
+        <ScreenWrapper>
+          <StepProgress currentStep={2} totalSteps={5} />
+          <Text style={styles.title}>Restaurant Details</Text>
+          <Text style={styles.subtitle}>Tell us about your food business</Text>
+
+          <Input label="Full Name *" value={form.fullName} onChangeText={(v) => update('fullName', v)} />
+          <Input
+            label="Restaurant / Business Name *"
+            value={form.businessName}
+            onChangeText={(v) => update('businessName', v)}
+          />
+          <Input
+            label="Email *"
+            value={form.email}
+            onChangeText={(v) => update('email', v)}
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
+          <Input
+            label="Restaurant Description"
+            value={form.description}
+            onChangeText={(v) => update('description', v)}
+            multiline
+            numberOfLines={3}
+          />
+          <Input label="GST Number (Optional)" value={form.gstNumber} onChangeText={(v) => update('gstNumber', v)} />
+          <Input
+            label="PAN Number *"
+            value={form.panNumber}
+            onChangeText={(v) => update('panNumber', formatPanInput(v))}
+            autoCapitalize="characters"
+            maxLength={10}
+          />
+
+          <Button title="Continue" onPress={handleContinue} loading={loading} fullWidth />
+        </ScreenWrapper>
+      </>
+    );
   }
 
   if (isStore) {

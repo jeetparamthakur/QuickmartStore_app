@@ -20,6 +20,11 @@ export function hasGoogleMapsKey(): boolean {
   return GOOGLE_MAPS_API_KEY.length > 0;
 }
 
+/** Opt-in Google Maps provider for native map views (MapLibre is the default). */
+export function useGoogleMapsProvider(): boolean {
+  return process.env.EXPO_PUBLIC_USE_GOOGLE_MAPS === 'true' && hasGoogleMapsKey();
+}
+
 /** Map expo-location reverse geocode result into our address fields */
 export function mapExpoGeocodedAddress(
   address: LocationGeocodedAddress,
