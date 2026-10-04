@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Text, StyleSheet, Alert } from 'react-native';
 import { router, Stack } from 'expo-router';
 import { ScreenWrapper } from '@/components/layout/ScreenWrapper';
@@ -22,6 +22,15 @@ export default function BusinessDetailsScreen() {
 
   const isStore = partnerType === 'STORE';
   const isFoodStore = partnerType === 'FOOD_STORE';
+  const isLegacyIndependentSeller = partnerType === 'INDEPENDENT_SELLER';
+
+  useEffect(() => {
+    if (!isStore && !isFoodStore && !isLegacyIndependentSeller) {
+      Alert.alert('Select seller type', 'Please choose Store or Food / Restaurant to continue.', [
+        { text: 'OK', onPress: () => router.replace('/(onboarding)/partner-type') },
+      ]);
+    }
+  }, [isStore, isFoodStore, isLegacyIndependentSeller]);
 
   const [form, setForm] = useState({
     fullName: existing?.fullName ?? '',
@@ -123,7 +132,7 @@ export default function BusinessDetailsScreen() {
       } finally {
         setLoading(false);
       }
-    } else {
+    } else if (isLegacyIndependentSeller) {
       const details: BusinessDetails = {
         fullName: form.fullName.trim(),
         businessName: form.businessName.trim(),
@@ -148,6 +157,10 @@ export default function BusinessDetailsScreen() {
       } finally {
         setLoading(false);
       }
+    } else {
+      Alert.alert('Select seller type', 'Please choose Store or Food / Restaurant to continue.', [
+        { text: 'OK', onPress: () => router.replace('/(onboarding)/partner-type') },
+      ]);
     }
   }
 
@@ -221,6 +234,10 @@ export default function BusinessDetailsScreen() {
         </ScreenWrapper>
       </>
     );
+  }
+
+  if (!isLegacyIndependentSeller) {
+    return null;
   }
 
   return (

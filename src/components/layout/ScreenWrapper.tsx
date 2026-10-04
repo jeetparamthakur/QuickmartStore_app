@@ -7,8 +7,12 @@ import {
   ViewStyle,
   Keyboard,
 } from 'react-native';
+import { useContext } from 'react';
+import { BottomTabBarHeightContext } from 'expo-router/build/react-navigation/bottom-tabs/utils/BottomTabBarHeightContext';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing } from '@/theme';
+
+export { useTabScreenInsets } from '@/hooks/useTabScreenInsets';
 
 const EXTRA_KEYBOARD_PADDING = spacing.xxl;
 
@@ -34,6 +38,7 @@ export function ScreenWrapper({
   edges = ['top'],
 }: Props) {
   const insets = useSafeAreaInsets();
+  const tabBarHeight = useContext(BottomTabBarHeightContext) ?? 0;
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const shouldHandleKeyboard = scroll && keyboardAware;
 
@@ -53,10 +58,11 @@ export function ScreenWrapper({
     };
   }, [shouldHandleKeyboard]);
 
+  const baseBottomPadding =
+    tabBarHeight > 0 ? tabBarHeight + spacing.lg : spacing.xxxl + insets.bottom;
+
   const bottomPadding =
-    spacing.xxxl +
-    insets.bottom +
-    (shouldHandleKeyboard ? keyboardHeight + EXTRA_KEYBOARD_PADDING : 0);
+    baseBottomPadding + (shouldHandleKeyboard ? keyboardHeight + EXTRA_KEYBOARD_PADDING : 0);
 
   const contentContainerStyle = [
     padding && styles.padding,

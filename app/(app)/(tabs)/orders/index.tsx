@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native
 import { router } from 'expo-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ScreenWrapper } from '@/components/layout/ScreenWrapper';
+import { useTabScreenInsets } from '@/hooks/useTabScreenInsets';
 import { OrderCard } from '@/components/cards/OrderCard';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -15,6 +16,7 @@ import { getPrepTimeRemaining } from '@/utils/format';
 import { colors, spacing, typography } from '@/theme';
 
 export default function OrdersScreen() {
+  const { contentPaddingBottom } = useTabScreenInsets();
   const [activeTab, setActiveTab] = useState<OrderStatus>('new');
   const [prepTimes, setPrepTimes] = useState<Record<string, string>>({});
   const config = usePartnerConfig();
@@ -102,7 +104,7 @@ export default function OrdersScreen() {
           data={data}
           renderItem={renderOrder}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.list}
+          contentContainerStyle={[styles.list, { paddingBottom: contentPaddingBottom }]}
           showsVerticalScrollIndicator={false}
         />
       )}

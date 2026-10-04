@@ -11,6 +11,7 @@ import { router } from 'expo-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { ScreenWrapper } from '@/components/layout/ScreenWrapper';
+import { useTabScreenInsets } from '@/hooks/useTabScreenInsets';
 import { ProductCard } from '@/components/cards/ProductCard';
 import { SearchBar } from '@/components/ui/SearchBar';
 import { SkeletonCard } from '@/components/ui/Skeleton';
@@ -26,6 +27,7 @@ import type { ProductCategory } from '@/types/category';
 import { colors, spacing, typography } from '@/theme';
 
 export default function ProductsScreen() {
+  const { contentPaddingBottom } = useTabScreenInsets();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<ProductTab>('active');
   const [search, setSearch] = useState('');
@@ -210,7 +212,7 @@ export default function ProductsScreen() {
             />
           )}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.list}
+          contentContainerStyle={[styles.list, { paddingBottom: contentPaddingBottom }]}
           showsVerticalScrollIndicator={false}
         />
       )}
